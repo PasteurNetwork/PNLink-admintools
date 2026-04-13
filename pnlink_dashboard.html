@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PNLink – Dashboard User Engagement</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --pn-blue: #213c83;
+      --pn-orange: #ff7940;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #d9e1f1;
+      --good: #1d7f5f;
+      --warn: #c9790b;
+      --bad: #c93636;
+      --soft-blue: #eaf0ff;
+      --soft-orange: #fff0e7;
+      --soft-red: #fdecec;
+      --soft-green: #eaf7f1;
+      --shadow: 0 10px 25px rgba(33, 60, 131, 0.08);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 1440px; margin: 0 auto; padding: 24px; }
+    .hero {
+      background: linear-gradient(135deg, var(--pn-blue), #3557b4);
+      color: #fff;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+    .hero-top { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .hero p { margin: 0; color: rgba(255,255,255,.9); line-height: 1.5; }
+    .uploader {
+      background: rgba(255,255,255,.12);
+      border: 1px dashed rgba(255,255,255,.35);
+      border-radius: 18px;
+      padding: 16px;
+      min-width: 320px;
+      backdrop-filter: blur(6px);
+    }
+    .uploader input { width: 100%; margin-top: 10px; }
+    .hint { font-size: 12px; margin-top: 8px; opacity: .88; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 0;
+    }
+    .pill {
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.18);
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+    .section-title { display: flex; justify-content: space-between; align-items: end; margin: 26px 0 12px; gap: 12px; }
+    .section-title h2 { margin: 0; font-size: 22px; color: var(--pn-blue); }
+    .section-title span { color: var(--muted); font-size: 13px; }
+    .meta-grid, .kpi-grid, .chart-grid, .table-grid, .engagement-grid {
+      display: grid; gap: 16px;
+    }
+    .meta-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .engagement-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .table-grid { grid-template-columns: 1fr; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .meta-label, .kpi-label { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+    .meta-value { font-size: 22px; font-weight: 700; color: var(--pn-blue); }
+    .kpi-value { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+    .kpi-sub { font-size: 12px; color: var(--muted); }
+    .kpi-blue { background: linear-gradient(180deg, #fff, #f7f9ff); }
+    .kpi-orange { background: linear-gradient(180deg, #fff, #fff7f2); }
+    .kpi-red { background: linear-gradient(180deg, #fff, #fff5f5); }
+    .kpi-green { background: linear-gradient(180deg, #fff, #f6fff9); }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 700;
+    }
+    .good { background: var(--soft-green); color: var(--good); }
+    .warn { background: #fff6e8; color: var(--warn); }
+    .bad { background: var(--soft-red); color: var(--bad); }
+    .info { background: var(--soft-blue); color: var(--pn-blue); }
+    .alerts { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .alert {
+      border-left: 5px solid var(--pn-blue);
+      background: #fff;
+      border-radius: 14px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+    }
+    .alert.bad { border-left-color: var(--bad); }
+    .alert.warn { border-left-color: var(--warn); }
+    .alert.good { border-left-color: var(--good); }
+    .alert-title { font-weight: 800; margin-bottom: 4px; }
+    .chart-box { height: 340px; }
+    canvas { width: 100% !important; height: 100% !important; }
+    .table-wrap { overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #e8edf7; text-align: left; vertical-align: top; }
+    th {
+      position: sticky; top: 0; background: #f8faff; color: var(--pn-blue); font-weight: 800;
+      z-index: 1;
+    }
+    tr:hover td { background: #fbfcff; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+    .filters input, .filters select {
+      padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: #fff; min-width: 180px;
+    }
+    .recommendations { display: grid; gap: 12px; }
+    .rec {
+      background: linear-gradient(180deg, #fff, #f9fbff);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+    }
+    .rec strong { color: var(--pn-blue); }
+    .empty {
+      padding: 30px; text-align: center; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); background: #fff;
+    }
+    .footer-note { color: var(--muted); font-size: 12px; margin-top: 10px; line-height: 1.5; }
+    @media (max-width: 1200px) {
+      .meta-grid, .kpi-grid, .engagement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .chart-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .meta-grid, .kpi-grid, .engagement-grid { grid-template-columns: 1fr; }
+      .hero-top { flex-direction: column; align-items: stretch; }
+      .uploader { min-width: unset; }
+    }
+
+    .kpi-card-clickable { cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .kpi-card-clickable:hover { transform: translateY(-2px); border-color: #b9c8ee; }
+    .kpi-card-clickable:focus { outline: 3px solid rgba(33,60,131,.18); outline-offset: 2px; }
+    .kpi-hint { margin-top: 8px; font-size: 11px; color: var(--muted); }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(23,32,51,.45); display: none; align-items: center; justify-content: center;
+      padding: 20px; z-index: 9999;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: min(1280px, 96vw); max-height: 90vh; overflow: hidden; background: #fff; border-radius: 22px;
+      border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(23,32,51,.18); display: flex; flex-direction: column;
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: start; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #f9fbff, #fff);
+    }
+    .modal-head h3 { margin: 0 0 6px; color: var(--pn-blue); }
+    .modal-close {
+      border: 0; background: var(--pn-blue); color: #fff; border-radius: 12px; padding: 10px 12px; cursor: pointer; font-weight: 700;
+    }
+    .modal-body { padding: 16px 20px 20px; overflow: auto; }
+    .modal-meta { color: var(--muted); font-size: 12px; }
+
+    .table-card { position: relative; }
+    .table-toolbar {
+      display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px;
+    }
+    .scroll-btn {
+      border: 1px solid var(--line); background: #fff; color: var(--pn-blue); border-radius: 10px;
+      padding: 8px 12px; cursor: pointer; font-weight: 700; box-shadow: var(--shadow);
+    }
+    .scroll-btn:hover { border-color: #b9c8ee; }
+    .stat-link {
+      cursor: pointer; color: var(--pn-blue); font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px;
+    }
+    .stat-link:hover { color: #3557b4; }
+
+  
+    .engagement-clickable { cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .engagement-clickable:hover { transform: translateY(-2px); border-color: #b9c8ee; }
+    .table-card .table-wrap { padding-bottom: 56px; }
+    .table-bottom-toolbar {
+      position: sticky; bottom: 0; z-index: 4; display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: -46px; padding: 8px 0 0; background: linear-gradient(180deg, rgba(245,247,251,0), rgba(245,247,251,.92) 45%, rgba(245,247,251,1) 100%);
+    }
+    .table-bottom-toolbar .scroll-btn {
+      background: #fff;
+    }
+    .detail-table-shell { position: relative; }
+    .detail-table-wrap {
+      overflow: auto;
+      padding-bottom: 60px;
+    }
+    .detail-bottom-toolbar {
+      position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: -48px; padding-top: 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.94) 42%, rgba(255,255,255,1) 100%);
+    }
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>PNLink — Dashboard User Engagement</h1>
+          <p>Importe l’export Excel utilisateurs PNLink pour afficher automatiquement les KPI, alertes, analyses institut, domaines email et recommandations d’action.</p>
+          <div class="toolbar">
+            <div class="pill">Import Excel local</div>
+            <div class="pill">Pilotage activation & adoption</div>
+          </div>
+        </div>
+        <div class="uploader">
+          <label for="excelFile"><strong>Importer un export Excel</strong></label>
+          <input id="excelFile" type="file" accept=".xlsx,.xls" />
+          <div class="hint">Le dashboard lit la première feuille du fichier et applique automatiquement les règles de calcul.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dashboard">
+      <div class="empty">Charge un fichier Excel pour afficher le tableau de bord interactif.</div>
+    </div>
+  </div>
+
+  <div id="detailModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="detailModalTitle">Détail</h3>
+          <div id="detailModalMeta" class="modal-meta"></div>
+        </div>
+        <button id="detailModalClose" class="modal-close" type="button">Fermer</button>
+      </div>
+      <div id="detailModalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const STAFF_REFERENCE = [
+      { name: "Centre Pasteur du Cameroun", global: 269, scientific: 170, support: 99, aliases: ["centre pasteur du cameroun", "centre pasteur cameroun", "centre pasteur cameroun", "cpc"], domains: ["pasteur-yaounde.org"] },
+      { name: "Institut Pasteur de Bangui", global: 110, scientific: null, support: 110, aliases: ["institut pasteur de bangui", "bangui"], domains: ["pasteur-bangui.cf"] },
+      { name: "Centre de Recherche Médicale et Sanitaire (CERMES Niger)", global: 88, scientific: 42, support: 46, aliases: ["cermes", "cermes niger", "centre de recherche medicale et sanitaire"], domains: ["cermes.org"] },
+      { name: "Institut Pasteur de Côte d'Ivoire", global: 146, scientific: 90, support: 56, aliases: ["institut pasteur de cote d'ivoire", "institut pasteur de côte d'ivoire", "côte d'ivoire", "cote d'ivoire", "ipc"], domains: ["pasteur.ci"] },
+      { name: "Institut Pasteur de Dakar", global: 650, scientific: null, support: null, aliases: ["institut pasteur de dakar", "dakar"], domains: ["pasteur.sn"] },
+      { name: "Institut Pasteur de Guinée", global: 30, scientific: 19, support: 11, aliases: ["institut pasteur de guinee", "institut pasteur de guinée", "guinee", "guinée"], domains: ["pasteur-guinee.org"] },
+      { name: "Institut Pasteur de Madagascar", global: 597, scientific: 103, support: 494, aliases: ["institut pasteur de madagascar", "madagascar"], domains: ["pasteur.mg"] },
+      { name: "INRS - Centre Armand-Frappier Santé Biotechnologie", global: 343, scientific: 318, support: 25, aliases: ["inrs", "armand-frappier", "armand frappier", "inrs - centre armand-frappier santé biotechnologie", "inrs - armand-frappier santé biotechnologie research centre"], domains: ["iaf.inrs.ca", "inrs.ca"] },
+      { name: "Institut Pasteur de la Guadeloupe", global: 63, scientific: 43, support: 20, aliases: ["guadeloupe", "institut pasteur de la guadeloupe"], domains: ["pasteur-guadeloupe.fr"] },
+      { name: "Institut Pasteur de la Guyane", global: 80, scientific: 70, support: 10, aliases: ["guyane", "institut pasteur de la guyane"], domains: ["pasteur-cayenne.fr"] },
+      { name: "Institut Pasteur de Montevideo", global: 320, scientific: 260, support: 60, aliases: ["montevideo", "pasteur montevideo", "ipmontevideo", "institut pasteur de montevideo"], domains: ["pasteur.edu.uy"] },
+      { name: "Oswaldo Cruz Foundation (FIOCRUZ)", global: 11934, scientific: 3500, support: 8334, aliases: ["fiocruz", "fundação oswaldo cruz", "fundacao oswaldo cruz", "oswaldo cruz foundation"], domains: ["fiocruz.br", "ioc.fiocruz.br", "bio.fiocruz.br"] },
+      { name: "Institut Pasteur de São Paulo", global: null, scientific: null, support: null, aliases: ["institut pasteur de sao paulo", "institut pasteur de são paulo", "sao paulo"], domains: [] },
+      { name: "University of Hong Kong - Pasteur Research Pole (HKU-PRP)", global: 55, scientific: 48, support: 7, aliases: ["hku-pasteur research pole", "hku pasteur research pole", "hku-pasteur", "hku pasteur", "hku-prp", "university of hong kong -pasteur research pole"], domains: ["hku.hk", "connect.hku.hk"] },
+      { name: "Institut Pasteur de Nouvelle-Calédonie", global: 37, scientific: 27, support: 5, aliases: ["institut pasteur de nouvelle-caledonie", "institut pasteur de nouvelle-calédonie", "nouvelle-caledonie", "nouvelle-calédonie"], domains: ["pasteur.nc"] },
+      { name: "Institut Pasteur du Cambodge", global: null, scientific: null, support: null, aliases: ["institut pasteur du cambodge", "cambodge"], domains: ["pasteur-kh.org"] },
+      { name: "Institut Pasteur du Laos", global: 68, scientific: 37, support: 31, aliases: ["institut pasteur du laos", "laos"], domains: ["pasteur.la"] },
+      { name: "Institut Pasteur in Ho Chi Minh City", global: 250, scientific: null, support: 250, aliases: ["pasteur institute in ho chi minh city", "institut pasteur in ho chi minh city", "ho chi minh city"], domains: ["pasteurhcm.edu.vn"] },
+      { name: "Institut Pasteur in Iran", global: 1300, scientific: 500, support: 800, aliases: ["institut pasteur in iran", "pasteur institute of iran", "iran", "ipi"], domains: [] },
+      { name: "Institut Pasteur in Nha Trang", global: 151, scientific: 113, support: 38, aliases: ["institut pasteur in nha trang", "nha trang"], domains: [] },
+      { name: "Institut Pasteur Korea", global: 97, scientific: 71, support: 26, aliases: ["institut pasteur korea", "ip korea"], domains: ["ip-korea.org"] },
+      { name: "National Institute of Hygiene and Epidemiology (NIHE)", global: 303, scientific: 204, support: 99, aliases: ["nihe", "national institute of hygiene and epidemiology"], domains: ["nihe.org.vn"] },
+      { name: "Institut Pasteur (Paris)", global: 2796, scientific: 2044, support: 752, aliases: ["institut pasteur paris", "institut pasteur (paris)", "institut pasteur", "paris"], domains: ["pasteur.fr"] },
+      { name: "Hellenic Pasteur Institute", global: 73, scientific: 39, support: 34, aliases: ["hellenic pasteur institute", "hpi"], domains: ["pasteur.gr"] },
+      { name: "Institut Pasteur de Lille", global: 800, scientific: null, support: 50, aliases: ["institut pasteur de lille", "pasteur lille", "lille"], domains: ["pasteur-lille.fr"] },
+      { name: "Istituto Pasteur Italia - Cenci Bolognetti Foundation", global: 146, scientific: 140, support: 6, aliases: ["istituto pasteur italia", "cenci bolognetti", "institut pasteur in italy", "istituto pasteur.it"], domains: ["istitutopasteur.it", "uniroma1.it"] },
+      { name: "Institut Pasteur in Saint Petersburg", global: 339, scientific: 144, support: 195, aliases: ["saint-petersburg pasteur institute", "saint petersburg", "st petersburg"], domains: ["pasteurorg.ru"] },
+      { name: "Sciensano", global: 861, scientific: 583, support: 278, aliases: ["sciensano"], domains: ["sciensano.be"] },
+      { name: "Stephan Angeloff Institute of Microbiology", global: 248, scientific: 248, support: null, aliases: ["stephan angeloff institute of microbiology", "microbiology bas"], domains: ["microbio.bas.bg"] },
+      { name: "Institut Pasteur d'Algérie", global: 1032, scientific: 530, support: 502, aliases: ["institut pasteur d'algerie", "institut pasteur d'algérie", "algeria", "ipa"], domains: ["pasteur.dz"] },
+      { name: "Institut Pasteur du Maroc", global: 201, scientific: 100, support: 40, aliases: ["institut pasteur du maroc", "morocco", "ipm"], domains: ["pasteur.ma"] },
+      { name: "Institut Pasteur de Tunis", global: 449, scientific: 308, support: 40, aliases: ["institut pasteur de tunis", "institut pasteur tunis", "tunis"], domains: ["pasteur.tn", "pasteur.utm.tn"] },
+      { name: "Pasteur Network", global: null, scientific: null, support: null, aliases: ["pasteur network"], domains: [] }
+    ];
+
+    const PERSONAL_DOMAINS = new Set([
+      'gmail.com','yahoo.com','yahoo.fr','outlook.com','hotmail.com','live.com','icloud.com','aol.com','proton.me','protonmail.com','gmx.com','mail.com','orange.fr','wanadoo.fr','free.fr'
+    ]);
+
+    const REQUIRED_FIELD_HINTS = {
+      email: ['Primary email'],
+      invitation: ['Invitation email sent at'],
+      activation: ['Account activation date'],
+      lastLogin: ['Last log in date'],
+      creation: ['Creation date'],
+      country: ['Live Location:Country', 'Work Postal Address:Country/Region'],
+      company: ['Last Job:Company:Name'],
+      role: ['Role:Name'],
+      score: ['Engagement Scoring:Current score'],
+      affiliation: ['_7ae915fc_Which_member_of_the_Pasteur_Network_are_you_affiliated_to_']
+    };
+
+    const dashboardEl = document.getElementById('dashboard');
+    const fileInput = document.getElementById('excelFile');
+    const charts = {};
+    const detailModalEl = document.getElementById('detailModal');
+    const detailModalTitleEl = document.getElementById('detailModalTitle');
+    const detailModalMetaEl = document.getElementById('detailModalMeta');
+    const detailModalBodyEl = document.getElementById('detailModalBody');
+    const detailModalCloseEl = document.getElementById('detailModalClose');
+    let currentSummary = null;
+
+    fileInput.addEventListener('change', handleFileSelect);
+    detailModalCloseEl.addEventListener('click', closeDetailModal);
+    detailModalEl.addEventListener('click', event => { if (event.target === detailModalEl) closeDetailModal(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && detailModalEl.classList.contains('open')) closeDetailModal(); });
+
+    function normalize(value) {
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/&#39;/g, "'")
+        .replace(/[^a-z0-9@.\-\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function parseExcelDate(value) {
+      if (value === null || value === undefined || value === '') return null;
+      if (value instanceof Date && !isNaN(value)) return value;
+      if (typeof value === 'number') {
+        const utcDays = Math.floor(value - 25569);
+        const utcValue = utcDays * 86400;
+        return new Date(utcValue * 1000);
+      }
+      const cleaned = String(value).trim();
+      const date = new Date(cleaned);
+      if (!isNaN(date)) return date;
+      return null;
+    }
+
+    function daysBetween(dateA, dateB = new Date()) {
+      if (!dateA) return null;
+      const ms = dateB.getTime() - dateA.getTime();
+      return Math.floor(ms / (1000 * 60 * 60 * 24));
+    }
+
+    function findField(columns, logicalName) {
+      const options = REQUIRED_FIELD_HINTS[logicalName] || [];
+      for (const wanted of options) {
+        if (columns.includes(wanted)) return wanted;
+      }
+      const normalizedColumns = columns.map(c => ({ original: c, n: normalize(c) }));
+      const normalizedWanted = options.map(normalize);
+      for (const candidate of normalizedColumns) {
+        if (normalizedWanted.includes(candidate.n)) return candidate.original;
+      }
+      return null;
+    }
+
+    function safeNumber(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function getDomain(email) {
+      if (!email) return '';
+      const match = String(email).toLowerCase().trim().match(/@([^@]+)$/);
+      return match ? match[1] : '';
+    }
+
+    function isTestOrSystem(row, email, company, role) {
+      const hay = normalize([email, company, role, row['First name'], row['Last name']].join(' '));
+      return ['test', 'demo', 'sample', 'admin', 'system', 'fake', 'dummy', 'noreply', 'do not use'].some(token => hay.includes(token));
+    }
+
+    function isEmailValid(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+    }
+
+    function classifyDomain(domain) {
+      if (!domain) return 'Inconnu / autre';
+      if (PERSONAL_DOMAINS.has(domain)) return 'Personnel';
+      if (domain.includes('pasteur') || domain.includes('fiocruz') || domain.includes('inrs') || domain.includes('hku') || domain.includes('sciensano') || domain.includes('nihe') || domain.includes('microbio')) return 'Institutionnel';
+      if (domain.includes('.org') || domain.includes('.edu') || domain.includes('.ac.') || domain.includes('.gov') || domain.includes('.int')) return 'Institutionnel';
+      return 'Inconnu / autre';
+    }
+
+    function mapInstitution(affiliation, company, domain) {
+      const textAff = normalize(affiliation);
+      const textCompany = normalize(company);
+      const textDomain = normalize(domain);
+
+      for (const ref of STAFF_REFERENCE) {
+        if (textAff && (normalize(ref.name) === textAff || ref.aliases.some(a => textAff.includes(normalize(a))))) {
+          return { name: ref.name, confidence: 'Fort', source: 'Affiliation', ref };
+        }
+      }
+      for (const ref of STAFF_REFERENCE) {
+        if (textCompany && (normalize(ref.name) === textCompany || ref.aliases.some(a => textCompany.includes(normalize(a))))) {
+          return { name: ref.name, confidence: 'Moyen', source: 'Organisation déclarée', ref };
+        }
+      }
+      for (const ref of STAFF_REFERENCE) {
+        if (textDomain && ref.domains.some(d => textDomain === normalize(d))) {
+          return { name: ref.name, confidence: 'Moyen', source: 'Domaine email', ref };
+        }
+      }
+      return { name: 'Non rattaché', confidence: 'Faible', source: 'Aucun indice fiable', ref: null };
+    }
+
+    function formatInt(value) {
+      return new Intl.NumberFormat('fr-FR').format(value || 0);
+    }
+
+    function formatPct(value) {
+      if (value === null || value === undefined || isNaN(value)) return '—';
+      return `${Number(value).toFixed(1)} %`;
+    }
+
+    function renderStatusBadge(label) {
+      let cls = 'info';
+      if (/bon|élevé|fort/i.test(label)) cls = 'good';
+      else if (/faible|critique/i.test(label)) cls = 'bad';
+      else if (/moyen|partiel|incomplet/i.test(label)) cls = 'warn';
+      return `<span class="status ${cls}">${label}</span>`;
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    function destroyCharts() {
+      Object.values(charts).forEach(chart => chart && chart.destroy && chart.destroy());
+      Object.keys(charts).forEach(key => delete charts[key]);
+    }
+
+
+    function getColumnValueCaseInsensitive(row, candidates) {
+      const keys = Object.keys(row || {});
+      for (const candidate of candidates) {
+        const direct = keys.find(k => normalize(k) === normalize(candidate));
+        if (direct && row[direct] !== undefined && row[direct] !== null && String(row[direct]).trim() !== '') return String(row[direct]).trim();
+      }
+      return '';
+    }
+
+    function detailRowsForFilter(filterKey) {
+      if (!currentSummary?.rows) return [];
+      const rows = currentSummary.rows;
+      const by = {
+        all: r => true,
+        active: r => r.active,
+        inactive: r => !r.active,
+        realProblems: r => r.realProblem,
+        invitedRecent: r => !r.active && r.invitationBucket === '≤30 jours',
+        invitedAging: r => !r.active && r.invitationBucket === '31–90 jours',
+        invitedOld: r => !r.active && r.invitationBucket === '>90 jours',
+        neverInvited: r => !r.active && r.invitationBucket === 'Jamais envoyée',
+        technical: r => r.technical
+      };
+      return (by[filterKey] ? rows.filter(by[filterKey]) : []);
+    }
+
+    function renderDetailTable(rows) {
+      if (!rows.length) return '<div class="empty">Aucune ligne à afficher pour ce segment.</div>';
+      return `<div class="detail-table-shell">
+        <div class="detail-table-wrap table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Prénom</th>
+                <th>Email</th>
+                <th>Institut affilié</th>
+                <th>Institut mappé</th>
+                <th>Localisation</th>
+                <th>Organisation</th>
+                <th>Rôle</th>
+                <th>Statut</th>
+                <th>Invitation</th>
+                <th>Dernière connexion</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `<tr>
+                <td>${escapeHtml(r.lastName || '—')}</td>
+                <td>${escapeHtml(r.firstName || '—')}</td>
+                <td>${escapeHtml(r.email || '—')}</td>
+                <td>${escapeHtml(r.affiliation || '—')}</td>
+                <td>${escapeHtml(r.mappedInstitution || '—')}<div class="small muted">${escapeHtml(r.mappingSource || '')}</div></td>
+                <td>${escapeHtml(r.country || '—')}</td>
+                <td>${escapeHtml(r.company || '—')}</td>
+                <td>${escapeHtml(r.role || '—')}</td>
+                <td>${r.active ? '<span class="status good">Activé</span>' : '<span class="status warn">Inactif</span>'}${r.realProblem ? ' <span class="status bad">Vrai problème</span>' : ''}${r.technical ? ' <span class="status info">Technique</span>' : ''}</td>
+                <td>${escapeHtml(r.invitationBucket || '—')}</td>
+                <td>${escapeHtml(r.lastLoginText || '—')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="detail-bottom-toolbar">
+          <button type="button" class="scroll-btn" data-scroll-target=".detail-table-wrap" data-direction="-1">←</button>
+          <button type="button" class="scroll-btn" data-scroll-target=".detail-table-wrap" data-direction="1">→</button>
+        </div>
+      </div>`;
+    }
+
+    function openDetailModal(filterKey, label) {
+      const rows = detailRowsForFilter(filterKey);
+      detailModalTitleEl.textContent = label;
+      detailModalMetaEl.textContent = `${formatInt(rows.length)} ligne(s) — clique sur un KPI ou un graphique pour voir les utilisateurs derrière le chiffre.`;
+      detailModalBodyEl.innerHTML = renderDetailTable(rows);
+      detailModalEl.classList.add('open');
+      detailModalEl.setAttribute('aria-hidden', 'false');
+      bindModalTableInteractions();
+    }
+
+    function closeDetailModal() {
+      detailModalEl.classList.remove('open');
+      detailModalEl.setAttribute('aria-hidden', 'true');
+    }
+
+
+    function scrollTable(button, direction) {
+      const targetSelector = button.dataset.scrollTarget;
+      const card = button.closest('.table-card');
+      const wrap = targetSelector
+        ? (card ? card.querySelector(targetSelector) : document.querySelector(targetSelector))
+        : (card ? card.querySelector('.table-wrap') : null);
+      if (!wrap) return;
+      wrap.scrollBy({ left: direction * 360, behavior: 'smooth' });
+    }
+
+    function rowsForInstitution(name) {
+      if (!currentSummary?.rows) return [];
+      return currentSummary.rows.filter(r => r.mappedInstitution === name);
+    }
+
+    function openInstitutionDetail(name) {
+      const rows = rowsForInstitution(name);
+      detailModalTitleEl.textContent = `Utilisateurs — ${name}`;
+      detailModalMetaEl.textContent = `${formatInt(rows.length)} ligne(s) pour cet institut.`;
+      detailModalBodyEl.innerHTML = renderDetailTable(rows);
+      detailModalEl.classList.add('open');
+      detailModalEl.setAttribute('aria-hidden', 'false');
+      bindModalTableInteractions();
+    }
+
+    function openRowsDetail(rows, title, metaText) {
+      detailModalTitleEl.textContent = title;
+      detailModalMetaEl.textContent = metaText || `${formatInt(rows.length)} ligne(s).`;
+      detailModalBodyEl.innerHTML = renderDetailTable(rows);
+      detailModalEl.classList.add('open');
+      detailModalEl.setAttribute('aria-hidden', 'false');
+      bindModalTableInteractions();
+    }
+
+    function bindModalTableInteractions() {
+      detailModalBodyEl.querySelectorAll('.scroll-btn[data-scroll-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = detailModalBodyEl.querySelector(btn.dataset.scrollTarget);
+          if (!target) return;
+          target.scrollBy({ left: Number(btn.dataset.direction || '1') * 360, behavior: 'smooth' });
+        });
+      });
+    }
+
+    function rowsForDomainType(type) {
+      if (!currentSummary?.rows) return [];
+      return currentSummary.rows.filter(r => r.domainType === type);
+    }
+
+    function rowsForAffiliationMissing() {
+      if (!currentSummary?.rows) return [];
+      return currentSummary.rows.filter(r => !r.hasAffiliation);
+    }
+
+    function rowsForNeverLogged() {
+      if (!currentSummary?.rows) return [];
+      return currentSummary.rows.filter(r => r.neverLogged);
+    }
+
+    function rowsForLongInactive() {
+      if (!currentSummary?.rows) return [];
+      return currentSummary.rows.filter(r => r.longInactive);
+    }
+
+    function bindTableInteractions() {
+      dashboardEl.querySelectorAll('.stat-link[data-institution]').forEach(el => {
+        const name = el.dataset.institution;
+        const open = () => openInstitutionDetail(name);
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open();
+          }
+        });
+      });
+
+      dashboardEl.querySelectorAll('.engagement-clickable[data-engagement-filter]').forEach(card => {
+        const filter = card.dataset.engagementFilter;
+        const label = card.dataset.label || 'Détail';
+        const open = () => {
+          let rows = [];
+          if (filter === 'affiliationMissing') rows = rowsForAffiliationMissing();
+          else if (filter === 'neverLogged') rows = rowsForNeverLogged();
+          else if (filter === 'longInactive') rows = rowsForLongInactive();
+          openRowsDetail(rows, label, `${formatInt(rows.length)} ligne(s) — vue détaillée de ce segment.`);
+        };
+        card.addEventListener('click', open);
+        card.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open();
+          }
+        });
+      });
+
+      dashboardEl.querySelectorAll('.scroll-btn[data-direction]').forEach(btn => {
+        btn.addEventListener('click', () => scrollTable(btn, Number(btn.dataset.direction || '1')));
+      });
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        processWorkbook(file.name, rows, firstSheetName);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function processWorkbook(fileName, rows, sheetName) {
+      destroyCharts();
+      if (!rows.length) {
+        dashboardEl.innerHTML = `<div class="empty">Le fichier ne contient aucune ligne exploitable.</div>`;
+        return;
+      }
+
+      const columns = Object.keys(rows[0]);
+      const fields = {
+        email: findField(columns, 'email'),
+        invitation: findField(columns, 'invitation'),
+        activation: findField(columns, 'activation'),
+        lastLogin: findField(columns, 'lastLogin'),
+        creation: findField(columns, 'creation'),
+        country: findField(columns, 'country'),
+        company: findField(columns, 'company'),
+        role: findField(columns, 'role'),
+        score: findField(columns, 'score'),
+        affiliation: findField(columns, 'affiliation')
+      };
+
+      const emailCounts = new Map();
+      rows.forEach(row => {
+        const email = String(row[fields.email] || '').trim().toLowerCase();
+        if (email) emailCounts.set(email, (emailCounts.get(email) || 0) + 1);
+      });
+
+      const enriched = rows.map(row => {
+        const email = String(row[fields.email] || '').trim();
+        const firstName = getColumnValueCaseInsensitive(row, ['First name', 'First Name', 'Given name', 'Given Name', 'Prénom', 'Prenom']);
+        const lastName = getColumnValueCaseInsensitive(row, ['Last name', 'Last Name', 'Family name', 'Family Name', 'Surname', 'Nom']);
+        const domain = getDomain(email);
+        const invitationDate = parseExcelDate(row[fields.invitation]);
+        const activationDate = parseExcelDate(row[fields.activation]);
+        const lastLoginDate = parseExcelDate(row[fields.lastLogin]);
+        const creationDate = parseExcelDate(row[fields.creation]);
+        const company = String(row[fields.company] || '').trim();
+        const role = String(row[fields.role] || '').trim();
+        const affiliation = String(row[fields.affiliation] || '').trim();
+        const country = String(row[fields.country] || '').trim();
+        const score = safeNumber(row[fields.score]);
+        const active = !!activationDate;
+        const invitationAge = daysBetween(invitationDate);
+        const loginAge = daysBetween(lastLoginDate);
+        const emailValid = isEmailValid(email);
+        const duplicateEmail = email ? (emailCounts.get(email.toLowerCase()) || 0) > 1 : false;
+        const technical = !email || !emailValid || duplicateEmail || isTestOrSystem(row, email, company, role);
+        let invitationBucket = 'N/A';
+        if (!active) {
+          if (!invitationDate) invitationBucket = 'Jamais envoyée';
+          else if (invitationAge <= 30) invitationBucket = '≤30 jours';
+          else if (invitationAge <= 90) invitationBucket = '31–90 jours';
+          else invitationBucket = '>90 jours';
+        }
+        const realProblem = !active && invitationBucket === '>90 jours' && !technical;
+        const mapped = mapInstitution(affiliation, company, domain);
+        const hasAffiliation = !!affiliation;
+        const neverLogged = active && !lastLoginDate;
+        const longInactive = active && loginAge !== null && loginAge > 180;
+        let scoreBand = 'Non renseigné';
+        if (score !== null) {
+          if (score >= 70) scoreBand = 'Élevé';
+          else if (score >= 40) scoreBand = 'Moyen';
+          else scoreBand = 'Faible';
+        }
+        return {
+          raw: row,
+          firstName, lastName,
+          email, domain,
+          domainType: classifyDomain(domain),
+          invitationDate, activationDate, lastLoginDate, creationDate,
+          invitationAge, loginAge,
+          company, role, affiliation, country, score, scoreBand,
+          active, technical, duplicateEmail, emailValid,
+          invitationBucket, realProblem,
+          mappedInstitution: mapped.name,
+          mappingConfidence: mapped.confidence,
+          mappingSource: mapped.source,
+          mappedRef: mapped.ref,
+          hasAffiliation, neverLogged, longInactive,
+          lastLoginText: lastLoginDate ? lastLoginDate.toLocaleDateString('fr-FR') : '',
+          activationText: activationDate ? activationDate.toLocaleDateString('fr-FR') : '',
+          invitationText: invitationDate ? invitationDate.toLocaleDateString('fr-FR') : ''
+        };
+      });
+
+      const summary = buildSummary(enriched, fileName, sheetName, fields, columns);
+      renderDashboard(summary);
+    }
+
+    function buildSummary(rows, fileName, sheetName, fields, columns) {
+      const total = rows.length;
+      const active = rows.filter(r => r.active).length;
+      const inactive = total - active;
+      const invitedRecent = rows.filter(r => !r.active && r.invitationBucket === '≤30 jours').length;
+      const invitedAging = rows.filter(r => !r.active && r.invitationBucket === '31–90 jours').length;
+      const invitedOld = rows.filter(r => !r.active && r.invitationBucket === '>90 jours').length;
+      const neverInvited = rows.filter(r => !r.active && r.invitationBucket === 'Jamais envoyée').length;
+      const technical = rows.filter(r => r.technical).length;
+      const realProblems = rows.filter(r => r.realProblem).length;
+      const domainsDetected = new Set(rows.map(r => r.domain).filter(Boolean)).size;
+      const institutesDetected = new Set(rows.map(r => r.mappedInstitution).filter(v => v && v !== 'Non rattaché')).size;
+      const activationRate = total ? (active / total) * 100 : 0;
+      const affiliationMissing = rows.filter(r => !r.hasAffiliation).length;
+      const personalDomains = rows.filter(r => r.domainType === 'Personnel').length;
+      const countriesDetected = new Set(rows.map(r => r.country).filter(Boolean)).size;
+      const neverLogged = rows.filter(r => r.neverLogged).length;
+      const longInactive = rows.filter(r => r.longInactive).length;
+
+      const instituteMap = new Map();
+      STAFF_REFERENCE.forEach(ref => {
+        instituteMap.set(ref.name, {
+          institution: ref.name,
+          globalStaff: ref.global,
+          scientificStaff: ref.scientific,
+          supportStaff: ref.support,
+          totalUsers: 0,
+          activeUsers: 0,
+          inactiveUsers: 0,
+          invitedRecent: 0,
+          invitedAging: 0,
+          invitedOld: 0,
+          neverInvited: 0,
+          realProblems: 0,
+          affiliationCount: 0,
+          countryCount: 0,
+          confidenceStrong: 0,
+          confidenceMedium: 0,
+          confidenceLow: 0,
+          countries: new Set(),
+          mappingSources: new Set()
+        });
+      });
+
+      rows.forEach(r => {
+        if (!instituteMap.has(r.mappedInstitution)) return;
+        const item = instituteMap.get(r.mappedInstitution);
+        item.totalUsers += 1;
+        item.activeUsers += r.active ? 1 : 0;
+        item.inactiveUsers += r.active ? 0 : 1;
+        item.invitedRecent += r.invitationBucket === '≤30 jours' ? 1 : 0;
+        item.invitedAging += r.invitationBucket === '31–90 jours' ? 1 : 0;
+        item.invitedOld += r.invitationBucket === '>90 jours' ? 1 : 0;
+        item.neverInvited += r.invitationBucket === 'Jamais envoyée' ? 1 : 0;
+        item.realProblems += r.realProblem ? 1 : 0;
+        item.affiliationCount += r.hasAffiliation ? 1 : 0;
+        item.countries.add(r.country || '');
+        item.mappingSources.add(r.mappingSource);
+        if (r.mappingConfidence === 'Fort') item.confidenceStrong += 1;
+        else if (r.mappingConfidence === 'Moyen') item.confidenceMedium += 1;
+        else item.confidenceLow += 1;
+      });
+
+      const institutes = Array.from(instituteMap.values())
+        .filter(i => i.totalUsers > 0)
+        .map(i => {
+          const coverageRate = i.globalStaff ? (i.totalUsers / i.globalStaff) * 100 : null;
+          const activationRate = i.totalUsers ? (i.activeUsers / i.totalUsers) * 100 : null;
+          const affiliationRate = i.totalUsers ? (i.affiliationCount / i.totalUsers) * 100 : null;
+          let status = 'Données incomplètes';
+          if (coverageRate !== null) {
+            if (coverageRate >= 60 && activationRate >= 60) status = 'Bon';
+            else if (coverageRate >= 20 || activationRate >= 40) status = 'Moyen';
+            else status = 'Faible';
+          }
+          if (coverageRate !== null && coverageRate > 100) status = 'À vérifier';
+          let action = 'Suivi normal';
+          if (i.realProblems > 0) action = 'Relance ciblée >90 jours';
+          else if (i.inactiveUsers >= 20 && (activationRate || 0) < 40) action = 'Campagne d’activation prioritaire';
+          else if ((affiliationRate || 0) < 20) action = 'Améliorer la collecte d’affiliation';
+          return {
+            ...i,
+            countryCount: Array.from(i.countries).filter(Boolean).length,
+            mappingLevel: i.confidenceStrong >= i.confidenceMedium ? 'Fort/Moyen' : 'Moyen',
+            coverageRate,
+            activationRate,
+            affiliationRate,
+            status,
+            action
+          };
+        })
+        .sort((a, b) => b.totalUsers - a.totalUsers);
+
+      const domainMap = new Map();
+      rows.forEach(r => {
+        const key = r.domain || '(sans domaine)';
+        if (!domainMap.has(key)) {
+          domainMap.set(key, {
+            domain: key,
+            type: r.domainType,
+            totalUsers: 0,
+            activeUsers: 0,
+            inactiveUsers: 0,
+            invitedRecent: 0,
+            realProblems: 0,
+            neverInvited: 0,
+            oldWithoutActivation: 0
+          });
+        }
+        const item = domainMap.get(key);
+        item.totalUsers += 1;
+        item.activeUsers += r.active ? 1 : 0;
+        item.inactiveUsers += r.active ? 0 : 1;
+        item.invitedRecent += r.invitationBucket === '≤30 jours' ? 1 : 0;
+        item.realProblems += r.realProblem ? 1 : 0;
+        item.neverInvited += r.invitationBucket === 'Jamais envoyée' ? 1 : 0;
+        item.oldWithoutActivation += r.invitationBucket === '>90 jours' ? 1 : 0;
+      });
+      const domains = Array.from(domainMap.values())
+        .map(d => ({ ...d, activationRate: d.totalUsers ? (d.activeUsers / d.totalUsers) * 100 : null }))
+        .sort((a, b) => b.totalUsers - a.totalUsers);
+
+      const roleMap = aggregateSimple(rows, 'role');
+      const countryMap = aggregateSimple(rows, 'country');
+      const scoreMap = aggregateSimple(rows, 'scoreBand');
+
+      const alerts = [];
+      if (activationRate >= 60) alerts.push({ level: 'good', title: 'Bonne dynamique d’activation', text: `Le taux d’activation global atteint ${formatPct(activationRate)}.` });
+      else alerts.push({ level: 'warn', title: 'Activation globale à renforcer', text: `Le taux d’activation global est de ${formatPct(activationRate)}, ce qui laisse une marge importante d’amélioration.` });
+      if (realProblems > 0) alerts.push({ level: 'bad', title: 'Comptes à traiter immédiatement', text: `${formatInt(realProblems)} utilisateurs sont inactifs depuis plus de 90 jours après invitation.` });
+      if (personalDomains / total > 0.08) alerts.push({ level: 'warn', title: 'Part notable de domaines personnels', text: `${formatInt(personalDomains)} comptes utilisent des domaines personnels, ce qui complique le pilotage institutionnel.` });
+      if (affiliationMissing / total > 0.5) alerts.push({ level: 'warn', title: 'Affiliation institut insuffisamment renseignée', text: `${formatPct((affiliationMissing / total) * 100)} des comptes n’ont pas d’affiliation institut explicite.` });
+      const weakInstitutes = institutes.filter(i => i.status === 'Faible').slice(0, 3);
+      if (weakInstitutes.length) alerts.push({ level: 'bad', title: 'Instituts à faible couverture ou faible activation', text: weakInstitutes.map(i => i.institution).join(' ; ') + '.' });
+      const oversizedInstitutes = institutes.filter(i => i.coverageRate !== null && i.coverageRate > 100).slice(0, 3);
+      if (oversizedInstitutes.length) alerts.push({ level: 'info', title: 'Ratios de couverture à vérifier', text: `Certaines couvertures dépassent 100 % (${oversizedInstitutes.map(i => i.institution).join(' ; ')}), ce qui suggère un mapping ou un référentiel à revoir.` });
+
+      const recommendations = [];
+      if (realProblems > 0) recommendations.push({ title: 'Relancer les comptes >90 jours', text: `${formatInt(realProblems)} comptes sont à traiter en priorité car ils restent non activés malgré une invitation ancienne.` });
+      if (technical > 0) recommendations.push({ title: 'Nettoyer les comptes techniques ou incohérents', text: `${formatInt(technical)} lignes présentent des signaux de doublon, email invalide ou compte test/système.` });
+      if (affiliationMissing > 0) recommendations.push({ title: 'Améliorer la collecte de l’affiliation institut', text: `${formatInt(affiliationMissing)} comptes sans affiliation explicite limitent la qualité de pilotage réseau.` });
+      const priorityInstitutes = institutes.filter(i => i.inactiveUsers >= 20 && (i.activationRate || 0) < 40).slice(0, 5);
+      if (priorityInstitutes.length) recommendations.push({ title: 'Cibler les instituts à forte base mais faible activation', text: priorityInstitutes.map(i => i.institution).join(' ; ') + '.' });
+      if (personalDomains > 0) recommendations.push({ title: 'Réduire les domaines personnels', text: `Encourager l’usage d’adresses institutionnelles pour renforcer le suivi par membre du réseau.` });
+
+      const consolidated = institutes.map(i => ({
+        segment: i.institution,
+        totalUsers: i.totalUsers,
+        activeUsers: i.activeUsers,
+        inactiveUsers: i.inactiveUsers,
+        activationRate: i.activationRate,
+        invitedRecent: i.invitedRecent,
+        invitedAging: i.invitedAging,
+        invitedOld: i.invitedOld,
+        neverInvited: i.neverInvited,
+        realProblems: i.realProblems,
+        organizationalCoverage: i.coverageRate,
+        status: i.status,
+        action: i.action
+      }));
+
+      return {
+        fileName,
+        rows,
+        sheetName,
+        fields,
+        columns,
+        totals: { total, active, inactive, invitedRecent, invitedAging, invitedOld, neverInvited, technical, realProblems, activationRate, domainsDetected, institutesDetected, countriesDetected, affiliationMissing, personalDomains, neverLogged, longInactive },
+        alerts,
+        recommendations,
+        institutes,
+        domains,
+        roles: roleMap,
+        countries: countryMap,
+        scoreBands: scoreMap,
+        consolidated
+      };
+    }
+
+    function aggregateSimple(rows, field) {
+      const map = new Map();
+      rows.forEach(r => {
+        const key = String(r[field] || 'Non renseigné').trim() || 'Non renseigné';
+        if (!map.has(key)) map.set(key, { label: key, total: 0, active: 0, inactive: 0 });
+        const item = map.get(key);
+        item.total += 1;
+        item.active += r.active ? 1 : 0;
+        item.inactive += r.active ? 0 : 1;
+      });
+      return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 12);
+    }
+
+    function renderDashboard(summary) {
+      currentSummary = summary;
+      const t = summary.totals;
+      dashboardEl.innerHTML = `
+        <div class="section-title"><h2>En-tête</h2><span>Lecture de la structure réelle du fichier</span></div>
+        <div class="meta-grid">
+          <div class="card"><div class="meta-label">Fichier analysé</div><div class="meta-value">${escapeHtml(summary.fileName)}</div></div>
+          <div class="card"><div class="meta-label">Feuille lue</div><div class="meta-value">${escapeHtml(summary.sheetName)}</div></div>
+          <div class="card"><div class="meta-label">Instituts détectés</div><div class="meta-value">${formatInt(t.institutesDetected)}</div></div>
+          <div class="card"><div class="meta-label">Domaines email détectés</div><div class="meta-value">${formatInt(t.domainsDetected)}</div></div>
+        </div>
+
+        <div class="section-title"><h2>KPI principaux</h2><span>Règles appliquées automatiquement depuis l’Excel</span></div>
+        <div class="kpi-grid">
+          <div class="card kpi-blue kpi-card-clickable" tabindex="0" data-filter="all" data-label="Utilisateurs totaux"><div class="kpi-label">Utilisateurs total</div><div class="kpi-value">${formatInt(t.total)}</div><div class="kpi-sub">Base chargée</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-green kpi-card-clickable" tabindex="0" data-filter="active" data-label="Utilisateurs activés"><div class="kpi-label">Utilisateurs activés</div><div class="kpi-value">${formatInt(t.active)}</div><div class="kpi-sub">Compte activé</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-orange kpi-card-clickable" tabindex="0" data-filter="inactive" data-label="Utilisateurs inactifs"><div class="kpi-label">Utilisateurs inactifs</div><div class="kpi-value">${formatInt(t.inactive)}</div><div class="kpi-sub">Sans date d’activation</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-blue"><div class="kpi-label">Taux d’activation</div><div class="kpi-value">${formatPct(t.activationRate)}</div><div class="kpi-sub">Activés / total</div></div>
+          <div class="card kpi-red kpi-card-clickable" tabindex="0" data-filter="realProblems" data-label="Vrais problèmes à traiter"><div class="kpi-label">Vrais problèmes</div><div class="kpi-value">${formatInt(t.realProblems)}</div><div class="kpi-sub">Inactifs &gt;90 jours</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="invitedRecent" data-label="Invitation ≤30 jours"><div class="kpi-label">Invitation ≤30 jours</div><div class="kpi-value">${formatInt(t.invitedRecent)}</div><div class="kpi-sub">Cas encore récents</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="invitedAging" data-label="Invitation 31–90 jours"><div class="kpi-label">Invitation 31–90 jours</div><div class="kpi-value">${formatInt(t.invitedAging)}</div><div class="kpi-sub">À surveiller</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="invitedOld" data-label="Invitation >90 jours"><div class="kpi-label">Invitation &gt;90 jours</div><div class="kpi-value">${formatInt(t.invitedOld)}</div><div class="kpi-sub">Risque d’abandon</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="neverInvited" data-label="Jamais invités"><div class="kpi-label">Jamais invités</div><div class="kpi-value">${formatInt(t.neverInvited)}</div><div class="kpi-sub">Problème de campagne</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="technical" data-label="Comptes anomalie / technique"><div class="kpi-label">Comptes anomalie / technique</div><div class="kpi-value">${formatInt(t.technical)}</div><div class="kpi-sub">Email, doublon ou test</div><div class="kpi-hint">Cliquer pour voir les personnes</div></div>
+        </div>
+
+        <div class="section-title"><h2>Lecture managériale</h2><span>Alertes simples pour décideurs</span></div>
+        <div class="alerts">
+          ${summary.alerts.map(a => `<div class="alert ${a.level}"><div class="alert-title">${escapeHtml(a.title)}</div><div>${escapeHtml(a.text)}</div></div>`).join('')}
+        </div>
+
+        <div class="section-title"><h2>Graphiques</h2><span>Activation, vieillissement des invitations et couverture</span></div>
+        <div class="chart-grid">
+          <div class="card"><div class="chart-box"><canvas id="activationChart"></canvas></div></div>
+          <div class="card"><div class="chart-box"><canvas id="invitationChart"></canvas></div></div>
+          <div class="card"><div class="chart-box"><canvas id="institutesChart"></canvas></div></div>
+          <div class="card"><div class="chart-box"><canvas id="domainTypeChart"></canvas></div></div>
+        </div>
+
+        <div class="section-title"><h2>Engagement et qualité de données</h2><span>Connexion, score, pays et rôles</span></div>
+        <div class="engagement-grid">
+          <div class="card engagement-clickable" tabindex="0" data-engagement-filter="neverLogged" data-label="Utilisateurs jamais connectés"><div class="meta-label">Utilisateurs jamais connectés</div><div class="meta-value">${formatInt(t.neverLogged)}</div><div class="small muted">Activés sans date de dernière connexion</div></div>
+          <div class="card engagement-clickable" tabindex="0" data-engagement-filter="longInactive" data-label="Inactifs depuis >180 jours"><div class="meta-label">Inactifs depuis &gt;180 jours</div><div class="meta-value">${formatInt(t.longInactive)}</div><div class="small muted">Basé sur Last log in date</div></div>
+          <div class="card engagement-clickable" tabindex="0" data-engagement-filter="affiliationMissing" data-label="Affiliations manquantes"><div class="meta-label">Affiliations manquantes</div><div class="meta-value">${formatInt(t.affiliationMissing)}</div><div class="small muted">Cliquer pour voir les personnes et emails</div></div>
+        </div>
+
+        <div class="section-title"><h2>Analyse par institut</h2><span>Couverture, activation et action recommandée</span></div>
+        <div class="table-grid">
+          <div class="card table-card"><div class="table-toolbar"><button type="button" class="scroll-btn" data-direction="-1">←</button><button type="button" class="scroll-btn" data-direction="1">→</button></div><div class="table-wrap">${renderInstituteTable(summary.institutes)}</div><div class="table-bottom-toolbar"><button type="button" class="scroll-btn" data-direction="-1">←</button><button type="button" class="scroll-btn" data-direction="1">→</button></div></div>
+        </div>
+
+        <div class="section-title"><h2>Analyse par domaine email</h2><span>Détection des domaines personnels et des poches de non-activation</span></div>
+        <div class="table-grid">
+          <div class="card table-card"><div class="table-toolbar"><button type="button" class="scroll-btn" data-direction="-1">←</button><button type="button" class="scroll-btn" data-direction="1">→</button></div><div class="table-wrap">${renderDomainTable(summary.domains)}</div><div class="table-bottom-toolbar"><button type="button" class="scroll-btn" data-direction="-1">←</button><button type="button" class="scroll-btn" data-direction="1">→</button></div></div>
+        </div>
+
+        <div class="section-title"><h2>Aide à la décision</h2><span>Recommandations liées à des constats mesurables</span></div>
+        <div class="card recommendations">
+          ${summary.recommendations.map(r => `<div class="rec"><strong>${escapeHtml(r.title)}</strong><div>${escapeHtml(r.text)}</div></div>`).join('')}
+        </div>
+
+        <div class="section-title"><h2>Tableau consolidé final</h2><span>Vue synthèse pour pilotage</span></div>
+        <div class="card table-card"><div class="table-toolbar"><button type="button" class="scroll-btn" data-direction="-1">←</button><button type="button" class="scroll-btn" data-direction="1">→</button></div><div class="table-wrap">${renderConsolidatedTable(summary.consolidated)}</div><div class="table-bottom-toolbar"><button type="button" class="scroll-btn" data-direction="-1">←</button><button type="button" class="scroll-btn" data-direction="1">→</button></div></div>
+
+        <div class="section-title"><h2>Colonnes détectées et règles</h2><span>Transparence sur les champs réellement utilisés</span></div>
+        <div class="card">
+          <div class="small"><strong>Champs utilisés :</strong> ${Object.entries(summary.fields).map(([k,v]) => `${escapeHtml(k)} → ${escapeHtml(v || 'non trouvé')}`).join(' | ')}</div>
+          <div class="footer-note">Règles : activé = date d’activation renseignée ; inactif = pas de date d’activation ; vrai problème = inactif avec invitation &gt;90 jours, hors compte technique. Le mapping institut utilise d’abord l’affiliation, puis l’organisation déclarée, puis le domaine email. Les valeurs manquantes ne sont jamais inventées.</div>
+        </div>
+      `;
+
+      dashboardEl.querySelectorAll('.kpi-card-clickable[data-filter]').forEach(card => {
+        const filter = card.dataset.filter;
+        const label = card.dataset.label || card.querySelector('.kpi-label')?.textContent || 'Détail';
+        const open = () => openDetailModal(filter, label);
+        card.addEventListener('click', open);
+        card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+      });
+      bindTableInteractions();
+      createCharts(summary);
+    }
+
+    function renderInstituteTable(items) {
+      return `<table>
+        <thead>
+          <tr>
+            <th>Institution</th><th>Global staff</th><th>Scientific</th><th>Support</th><th>Users PNLink</th><th>Activés</th><th>Inactifs</th><th>Taux activation</th><th>% couverture</th><th>% affiliation</th><th>Vrais problèmes</th><th>Statut</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(i => `<tr>
+            <td><strong class="stat-link" tabindex="0" data-institution="${escapeHtml(i.institution)}">${escapeHtml(i.institution)}</strong><div class="small muted">Confiance: ${escapeHtml(i.mappingLevel)}</div></td>
+            <td>${i.globalStaff ?? '—'}</td>
+            <td>${i.scientificStaff ?? '—'}</td>
+            <td>${i.supportStaff ?? '—'}</td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.institution)}">${formatInt(i.totalUsers)}</span></td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.institution)}">${formatInt(i.activeUsers)}</span></td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.institution)}">${formatInt(i.inactiveUsers)}</span></td>
+            <td>${formatPct(i.activationRate)}</td>
+            <td>${formatPct(i.coverageRate)}</td>
+            <td>${formatPct(i.affiliationRate)}</td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.institution)}">${formatInt(i.realProblems)}</span></td>
+            <td>${renderStatusBadge(i.status)}</td>
+            <td>${escapeHtml(i.action)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    function renderDomainTable(items) {
+      const top = items.slice(0, 25);
+      return `<table>
+        <thead>
+          <tr>
+            <th>Domaine</th><th>Type</th><th>Total</th><th>Activés</th><th>Inactifs</th><th>Taux activation</th><th>Invitations ≤30j</th><th>Sans invitation</th><th>90j sans activation</th><th>Vrais problèmes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${top.map(d => `<tr>
+            <td><strong>${escapeHtml(d.domain)}</strong></td>
+            <td>${renderStatusBadge(d.type)}</td>
+            <td>${formatInt(d.totalUsers)}</td>
+            <td>${formatInt(d.activeUsers)}</td>
+            <td>${formatInt(d.inactiveUsers)}</td>
+            <td>${formatPct(d.activationRate)}</td>
+            <td>${formatInt(d.invitedRecent)}</td>
+            <td>${formatInt(d.neverInvited)}</td>
+            <td>${formatInt(d.oldWithoutActivation)}</td>
+            <td>${formatInt(d.realProblems)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    function renderConsolidatedTable(items) {
+      return `<table>
+        <thead>
+          <tr>
+            <th>Institution / segment</th><th>Total</th><th>Activés</th><th>Inactifs</th><th>Taux activation</th><th>≤30j</th><th>31–90j</th><th>&gt;90j</th><th>Sans invitation</th><th>Vrais problèmes</th><th>Taux couverture</th><th>Statut</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(i => `<tr>
+            <td><strong class="stat-link" tabindex="0" data-institution="${escapeHtml(i.segment)}">${escapeHtml(i.segment)}</strong></td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.segment)}">${formatInt(i.totalUsers)}</span></td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.segment)}">${formatInt(i.activeUsers)}</span></td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.segment)}">${formatInt(i.inactiveUsers)}</span></td>
+            <td>${formatPct(i.activationRate)}</td>
+            <td>${formatInt(i.invitedRecent)}</td>
+            <td>${formatInt(i.invitedAging)}</td>
+            <td>${formatInt(i.invitedOld)}</td>
+            <td>${formatInt(i.neverInvited)}</td>
+            <td><span class="stat-link" tabindex="0" data-institution="${escapeHtml(i.segment)}">${formatInt(i.realProblems)}</span></td>
+            <td>${formatPct(i.organizationalCoverage)}</td>
+            <td>${renderStatusBadge(i.status)}</td>
+            <td>${escapeHtml(i.action)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    function handleActivationChartClick(event, elements) {
+      if (!elements.length) return;
+      const index = elements[0].index;
+      const filter = index === 0 ? 'active' : 'inactive';
+      const label = index === 0 ? 'Utilisateurs activés' : 'Utilisateurs inactifs';
+      openDetailModal(filter, label);
+    }
+
+    function handleInstitutesChartClick(event, elements, institutes) {
+      if (!elements.length) return;
+      const index = elements[0].index;
+      const institute = institutes[index];
+      if (!institute) return;
+      openInstitutionDetail(institute.institution);
+    }
+
+    function handleDomainTypeChartClick(event, elements, labels) {
+      if (!elements.length) return;
+      const index = elements[0].index;
+      const type = labels[index];
+      const rows = rowsForDomainType(type);
+      openRowsDetail(rows, `Répartition domaine — ${type}`, `${formatInt(rows.length)} ligne(s) pour ce type de domaine email.`);
+    }
+
+    function createCharts(summary) {
+      const t = summary.totals;
+      charts.activation = new Chart(document.getElementById('activationChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Activés', 'Inactifs'],
+          datasets: [{ data: [t.active, t.inactive], backgroundColor: ['#213c83', '#ff7940'], borderWidth: 0 }]
+        },
+        options: { maintainAspectRatio: false, onClick: handleActivationChartClick, plugins: { title: { display: true, text: 'Activation des comptes' }, legend: { position: 'bottom' } } }
+      });
+
+      charts.invitation = new Chart(document.getElementById('invitationChart'), {
+        type: 'bar',
+        data: {
+          labels: ['≤30 jours', '31–90 jours', '>90 jours', 'Jamais envoyée'],
+          datasets: [{ label: 'Inactifs', data: [t.invitedRecent, t.invitedAging, t.invitedOld, t.neverInvited], backgroundColor: ['#213c83', '#6d85c7', '#ff7940', '#c93636'] }]
+        },
+        options: { maintainAspectRatio: false, plugins: { title: { display: true, text: 'Vieillissement des invitations non activées' }, legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+
+      const topInstitutes = summary.institutes.slice(0, 10);
+      charts.institutes = new Chart(document.getElementById('institutesChart'), {
+        type: 'bar',
+        data: {
+          labels: topInstitutes.map(i => i.institution.length > 28 ? i.institution.slice(0, 28) + '…' : i.institution),
+          datasets: [
+            { label: 'Activés', data: topInstitutes.map(i => i.activeUsers), backgroundColor: '#213c83' },
+            { label: 'Inactifs', data: topInstitutes.map(i => i.inactiveUsers), backgroundColor: '#ff7940' }
+          ]
+        },
+        options: { maintainAspectRatio: false, onClick: (event, elements) => handleInstitutesChartClick(event, elements, topInstitutes), plugins: { title: { display: true, text: 'Top instituts par volume PNLink' }, legend: { position: 'bottom' } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+      });
+
+      const domainTypes = ['Institutionnel', 'Personnel', 'Inconnu / autre'].map(type => summary.domains.filter(d => d.type === type).reduce((acc, cur) => acc + cur.totalUsers, 0));
+      charts.domainType = new Chart(document.getElementById('domainTypeChart'), {
+        type: 'pie',
+        data: {
+          labels: ['Institutionnel', 'Personnel', 'Inconnu / autre'],
+          datasets: [{ data: domainTypes, backgroundColor: ['#213c83', '#ff7940', '#94a3b8'], borderWidth: 0 }]
+        },
+        options: { maintainAspectRatio: false, onClick: (event, elements) => handleDomainTypeChartClick(event, elements, ['Institutionnel', 'Personnel', 'Inconnu / autre']), plugins: { title: { display: true, text: 'Répartition par type de domaine email' }, legend: { position: 'bottom' } } }
+      });
+    }
+  </script>
+</body>
+</html>
