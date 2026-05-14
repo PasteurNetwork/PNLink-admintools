@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PNLink – Dashboard User Engagement</title>
+  <script src="assets/vendor/xlsx.full.min.js"></script>
+  <script>
+    if (typeof window.XLSX === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
+    }
+  </script>
+  <script src="assets/vendor/chart.umd.js"></script>
+  <script>
+    if (typeof window.Chart === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.js"><\/script>');
+    }
+  </script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Dashboard navigation">
+      <div class="sidebar-brand">
+        <img src="assets/logo.png" alt="Pasteur Network logo" class="sidebar-logo" />
+        <div id="siteDescription" class="sidebar-site-description">Engagement Hub</div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Sections">
+        <a href="#section-excel-import" class="sidebar-link active">Excel import</a>
+        <a href="#dashboard" class="sidebar-link">Dashboard</a>
+      </nav>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <div>
+          <p class="page-eyebrow" id="toolbarPilotagePill">Activation & adoption tracking</p>
+          <h1 id="heroTitle">PNLink — Dashboard User Engagement</h1>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Open navigation menu" aria-controls="sidebarNav" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="lang-switch" aria-label="Language switcher">
+            <button type="button" class="lang-btn active" data-lang="en">EN</button>
+            <button type="button" class="lang-btn" data-lang="fr">FR</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="intro-panel" aria-labelledby="heroTitle">
+        <div class="intro-copy">
+          <p id="heroDescription">Import a PNLink users Excel export to automatically display KPIs, alerts, institute analysis, email domain analysis and action recommendations.</p>
+          <div id="heroInstruction" class="hero-instruction">From PNLink, export the most recent file from <a href="https://community.pasteur-network.org/backoffice/networks/3786/data_management/exports" target="_blank" rel="noopener noreferrer">“Export history &gt; Export all users”</a> on this page, making sure all fields are checked.</div>
+        </div>
+
+        <div class="uploader" id="section-excel-import" aria-label="Excel import panel">
+          <div class="upload-header">
+            <span id="toolbarImportPill" class="panel-tag">Local Excel import</span>
+            <label for="excelFile"><strong id="uploadLabel">Import an Excel export</strong></label>
+          </div>
+          <div class="upload-actions">
+            <input id="excelFile" class="native-file-input" type="file" accept=".xlsx,.xls" />
+            <button type="button" id="selectFileBtn" class="upload-btn">Choose file</button>
+            <button type="button" id="clearFileBtn" class="upload-btn secondary">Clear</button>
+          </div>
+          <span id="fileNameLabel" class="file-name-badge">No file selected</span>
+          <div class="hint" id="uploadHint">The dashboard reads the first sheet of the file and automatically applies the calculation rules.</div>
+          <div class="import-spinner" id="importSpinner" role="status" aria-live="polite" style="display:none;">
+            <span class="import-spinner-ring" aria-hidden="true"></span>
+            <span id="importSpinnerLabel">Processing the file…</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboard" class="dashboard-content">
+        <div class="empty" id="initialEmpty">Load an Excel file to display the interactive dashboard.</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="mobileNavBackdrop" class="mobile-nav-backdrop" hidden></div>
+
+  <div id="detailModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="detailModalTitle">Détail</h3>
+          <div id="detailModalMeta" class="modal-meta"></div>
+        </div>
+        <button id="detailModalClose" class="modal-close" type="button">Close</button>
+      </div>
+      <div id="detailModalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
