@@ -2373,15 +2373,6 @@
           <div class="card kpi-orange kpi-card-clickable" tabindex="0" data-filter="churnSlipping" data-label="${escapeHtml(tUI('churnSlippingLabel'))}" title="${escapeHtml(tUI('tipChurnSlipping'))}"><div class="kpi-label">${escapeHtml(tUI('churnSlippingLabel'))}</div><div class="kpi-value">${formatInt(t.churnSlipping)}</div><div class="kpi-sub">${escapeHtml(tUI('churnSlippingSub'))}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
         </div>
 
-        <div class="section-title"><h2>${escapeHtml(tUI('funnelTitle'))}</h2><span>${escapeHtml(tUI('funnelSub'))}</span></div>
-        <div class="kpi-grid">
-          <div class="card kpi-blue" title="${escapeHtml(tUI('tipFunnelMedian'))}"><div class="kpi-label">${escapeHtml(tUI('funnelP50Label'))}</div><div class="kpi-value">${summary.activationLag.p50 !== null ? formatInt(summary.activationLag.p50) : '—'}</div><div class="kpi-sub">${escapeHtml(tUI('funnelSamplesSub', summary.activationLag.samples))}</div></div>
-          <div class="card kpi-orange" title="${escapeHtml(tUI('tipFunnelP90'))}"><div class="kpi-label">${escapeHtml(tUI('funnelP90Label'))}</div><div class="kpi-value">${summary.activationLag.p90 !== null ? formatInt(summary.activationLag.p90) : '—'}</div><div class="kpi-sub">${escapeHtml(tUI('funnelSamplesSub', summary.activationLag.samples))}</div></div>
-          <div class="card kpi-green" title="${escapeHtml(tUI('tipFunnelWithin'))}"><div class="kpi-label">${escapeHtml(tUI('funnelWithin7Label'))}</div><div class="kpi-value">${formatInt(summary.activationLag.within7d)}</div><div class="kpi-sub">${escapeHtml(tUI('funnelSamplesSub', summary.activationLag.samples))}</div></div>
-          <div class="card kpi-green" title="${escapeHtml(tUI('tipFunnelWithin'))}"><div class="kpi-label">${escapeHtml(tUI('funnelWithin14Label'))}</div><div class="kpi-value">${formatInt(summary.activationLag.within14d)}</div><div class="kpi-sub">${escapeHtml(tUI('funnelSamplesSub', summary.activationLag.samples))}</div></div>
-          <div class="card kpi-green" title="${escapeHtml(tUI('tipFunnelWithin'))}"><div class="kpi-label">${escapeHtml(tUI('funnelWithin30Label'))}</div><div class="kpi-value">${formatInt(summary.activationLag.within30d)}</div><div class="kpi-sub">${escapeHtml(tUI('funnelSamplesSub', summary.activationLag.samples))}</div></div>
-        </div>
-
         <div class="section-title"><h2>${escapeHtml(tUI('cohortTitle'))}</h2><span>${escapeHtml(tUI('cohortSub'))}</span></div>
         <div class="card table-card"><div class="table-toolbar"><button type="button" id="exportCohortBtn" class="export-btn">${escapeHtml(tUI('exportCohort'))}</button></div><div class="table-wrap">${renderCohortTable(summary.cohorts)}</div><div class="table-bottom-toolbar"></div></div>
 
