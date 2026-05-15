@@ -23,6 +23,7 @@
     <aside class="sidebar" aria-label="Dashboard navigation">
       <div class="sidebar-brand">
         <img src="assets/logo.png" alt="Pasteur Network logo" class="sidebar-logo" />
+        <!-- <div id="siteDescription" class="sidebar-site-description">User analytics</div> -->
       </div>
 
       <nav class="sidebar-nav" id="sidebarNav" aria-label="Sections">
@@ -38,11 +39,6 @@
           <h1 id="heroTitle">PNLink — Dashboard User Engagement</h1>
         </div>
         <div class="topbar-actions">
-          <button type="button" id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Open navigation menu" aria-controls="sidebarNav" aria-expanded="false">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
           <div class="lang-switch" aria-label="Language switcher">
             <button type="button" class="lang-btn active" data-lang="en">EN</button>
             <button type="button" class="lang-btn" data-lang="fr">FR</button>
@@ -79,23 +75,6 @@
         <div class="empty" id="initialEmpty">Load an Excel file to display the interactive dashboard.</div>
       </section>
     </main>
-  </div>
-
-  <div id="mobileNavBackdrop" class="mobile-nav-backdrop" hidden></div>
-  <div id="importOverlay" class="import-overlay" hidden aria-live="polite" aria-busy="true">
-    <div class="import-overlay-card" role="status">
-      <div class="import-overlay-badge" id="importOverlayBadge">Excel import</div>
-      <div class="import-overlay-spinner" aria-hidden="true"></div>
-      <h2 id="importOverlayTitle">Preparing dashboard</h2>
-      <p id="importOverlayText">Processing the file…</p>
-      <div class="import-progress-shell" aria-hidden="true">
-        <div id="importProgressBar" class="import-progress-bar"></div>
-      </div>
-      <div class="import-progress-meta">
-        <span id="importProgressPercent">0%</span>
-        <span id="importOverlayFileName"></span>
-      </div>
-    </div>
   </div>
 
   <div id="detailModal" class="modal-backdrop" aria-hidden="true">

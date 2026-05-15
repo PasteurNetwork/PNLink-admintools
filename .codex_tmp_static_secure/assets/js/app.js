@@ -106,26 +106,16 @@
     };
 
     const dashboardEl = document.getElementById('dashboard');
-    const sidebarNavEl = document.getElementById('sidebarNav');
     const fileInput = document.getElementById('excelFile');
     const selectFileBtn = document.getElementById('selectFileBtn');
     const clearFileBtn = document.getElementById('clearFileBtn');
     const fileNameLabel = document.getElementById('fileNameLabel');
     const charts = {};
-    const importOverlayEl = document.getElementById('importOverlay');
-    const importOverlayBadgeEl = document.getElementById('importOverlayBadge');
-    const importOverlayTitleEl = document.getElementById('importOverlayTitle');
-    const importOverlayTextEl = document.getElementById('importOverlayText');
-    const importOverlayFileNameEl = document.getElementById('importOverlayFileName');
-    const importProgressBarEl = document.getElementById('importProgressBar');
-    const importProgressPercentEl = document.getElementById('importProgressPercent');
     const detailModalEl = document.getElementById('detailModal');
     const detailModalTitleEl = document.getElementById('detailModalTitle');
     const detailModalMetaEl = document.getElementById('detailModalMeta');
     const detailModalBodyEl = document.getElementById('detailModalBody');
     const detailModalCloseEl = document.getElementById('detailModalClose');
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    const mobileNavBackdropEl = document.getElementById('mobileNavBackdrop');
 
     let currentLang = 'en';
     let baseRows = [];
@@ -135,121 +125,8 @@
     let currentDetailRows = [];
     let currentDetailTitle = '';
     let tableSortState = { institutes: { key: 'totalUsers', dir: 'desc' }, domains: { key: 'totalUsers', dir: 'desc' }, consolidated: { key: 'realProblems', dir: 'desc' } };
-    let hasBoundMultiSelectEvents = false;
     // Global-search index — rebuilt every time renderDashboard runs (cheap, ~5k items max).
     let currentSearchIndex = [];
-    let sidebarScrollHandler = null;
-    let postRenderFrameId = null;
-    let postRenderIdleId = null;
-    let renderCycleId = 0;
-    let importProgressTimer = null;
-    let importProgressValue = 0;
-    let importProgressTarget = 0;
-
-    function cancelScheduledPostRenderWork() {
-      if (postRenderFrameId !== null) {
-        cancelAnimationFrame(postRenderFrameId);
-        postRenderFrameId = null;
-      }
-      if (postRenderIdleId !== null) {
-        if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(postRenderIdleId);
-        else clearTimeout(postRenderIdleId);
-        postRenderIdleId = null;
-      }
-    }
-
-    function scheduleIdleWork(task, timeout = 120) {
-      if (typeof window.requestIdleCallback === 'function') {
-        postRenderIdleId = window.requestIdleCallback(() => {
-          postRenderIdleId = null;
-          task();
-        }, { timeout });
-        return;
-      }
-      postRenderIdleId = window.setTimeout(() => {
-        postRenderIdleId = null;
-        task();
-      }, 0);
-    }
-
-    function setImportOverlayProgress(value, label) {
-      importProgressValue = Math.max(importProgressValue, Math.min(100, value));
-      importProgressTarget = Math.max(importProgressValue, Math.min(100, value));
-      if (label && importOverlayTextEl) importOverlayTextEl.textContent = label;
-      if (importProgressBarEl) importProgressBarEl.style.width = `${importProgressValue}%`;
-      if (importProgressPercentEl) importProgressPercentEl.textContent = `${Math.round(importProgressValue)}%`;
-    }
-
-    function animateImportOverlayTowards(target) {
-      importProgressTarget = Math.max(0, Math.min(100, target));
-      if (importProgressTimer) clearInterval(importProgressTimer);
-      importProgressTimer = window.setInterval(() => {
-        if (importProgressValue >= importProgressTarget) {
-          clearInterval(importProgressTimer);
-          importProgressTimer = null;
-          return;
-        }
-        importProgressValue = Math.min(importProgressTarget, importProgressValue + 1);
-        if (importProgressBarEl) importProgressBarEl.style.width = `${importProgressValue}%`;
-        if (importProgressPercentEl) importProgressPercentEl.textContent = `${Math.round(importProgressValue)}%`;
-      }, 22);
-    }
-
-    function showImportOverlay(fileName) {
-      const langPack = STATIC_TEXT[currentLang];
-      importProgressValue = 0;
-      importProgressTarget = 0;
-      if (importProgressTimer) {
-        clearInterval(importProgressTimer);
-        importProgressTimer = null;
-      }
-      if (importOverlayBadgeEl) importOverlayBadgeEl.textContent = langPack.importOverlayBadge;
-      if (importOverlayTitleEl) importOverlayTitleEl.textContent = langPack.importOverlayTitle;
-      if (importOverlayTextEl) importOverlayTextEl.textContent = langPack.importStageReading;
-      if (importOverlayFileNameEl) importOverlayFileNameEl.textContent = fileName || '';
-      if (importProgressBarEl) importProgressBarEl.style.width = '0%';
-      if (importProgressPercentEl) importProgressPercentEl.textContent = '0%';
-      if (importOverlayEl) importOverlayEl.hidden = false;
-      animateImportOverlayTowards(12);
-    }
-
-    function advanceImportOverlay(stageKey, target) {
-      const langPack = STATIC_TEXT[currentLang];
-      if (importOverlayTextEl && langPack[stageKey]) importOverlayTextEl.textContent = langPack[stageKey];
-      animateImportOverlayTowards(target);
-    }
-
-    function hideImportOverlay() {
-      const langPack = STATIC_TEXT[currentLang];
-      if (importOverlayTextEl) importOverlayTextEl.textContent = langPack.importStageDone || langPack.importLoading;
-      if (importProgressTimer) {
-        clearInterval(importProgressTimer);
-        importProgressTimer = null;
-      }
-      importProgressValue = 100;
-      if (importProgressBarEl) importProgressBarEl.style.width = '100%';
-      if (importProgressPercentEl) importProgressPercentEl.textContent = '100%';
-      window.setTimeout(() => {
-        if (importOverlayEl) importOverlayEl.hidden = true;
-      }, 180);
-    }
-
-    function openMobileSidebar() {
-      document.body.classList.add('mobile-sidebar-open');
-      if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', 'true');
-      if (mobileNavBackdropEl) mobileNavBackdropEl.hidden = false;
-    }
-
-    function closeMobileSidebar() {
-      document.body.classList.remove('mobile-sidebar-open');
-      if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', 'false');
-      if (mobileNavBackdropEl) mobileNavBackdropEl.hidden = true;
-    }
-
-    function toggleMobileSidebar() {
-      if (document.body.classList.contains('mobile-sidebar-open')) closeMobileSidebar();
-      else openMobileSidebar();
-    }
 
     const STATIC_TEXT = {
       fr: {
@@ -266,16 +143,7 @@
         close: 'Fermer',
         clear: 'Vider',
         chooseFile: 'Choisir un fichier',
-        noFile: 'Aucun fichier sélectionné',
-        siteDescription: 'Portail PNLink',
-        importOverlayBadge: 'Import Excel',
-        importOverlayTitle: 'Preparation du dashboard',
-        importStageReading: 'Lecture du fichier Excel...',
-        importStageParsing: 'Extraction des donnees...',
-        importStageAnalyzing: 'Analyse des utilisateurs et calcul des indicateurs...',
-        importStageRendering: 'Construction du dashboard...',
-        importStageFinishing: 'Finalisation de l affichage...',
-        importStageDone: 'Dashboard pret.'
+        noFile: 'Aucun fichier sélectionné'
       },
       en: {
         title: 'User Engagement Dashboard',
@@ -291,16 +159,7 @@
         close: 'Close',
         clear: 'Clear',
         chooseFile: 'Choose file',
-        noFile: 'No file selected',
-        siteDescription: 'Engagement Hub',
-        importOverlayBadge: 'Excel import',
-        importOverlayTitle: 'Preparing dashboard',
-        importStageReading: 'Reading Excel file...',
-        importStageParsing: 'Extracting data...',
-        importStageAnalyzing: 'Analyzing users and metrics...',
-        importStageRendering: 'Building dashboard...',
-        importStageFinishing: 'Finalizing display...',
-        importStageDone: 'Dashboard ready.'
+        noFile: 'No file selected'
       }
     };
 
@@ -851,7 +710,7 @@
     function tUI(key, ...args) {
       const pack = UI_TEXT[currentLang] || UI_TEXT.en;
       const value = pack[key];
-      return decodeUiValue(typeof value === 'function' ? value(...args) : value);
+      return typeof value === 'function' ? value(...args) : value;
     }
 
     const BUSINESS_TEXT = {
@@ -920,7 +779,7 @@
     function localizeBusinessText(group, value) {
       const pack = BUSINESS_TEXT[group] || {};
       const entry = pack[value];
-      return decodeUiValue(entry ? (entry[currentLang] || entry.en || value) : value);
+      return entry ? (entry[currentLang] || entry.en || value) : value;
     }
 
     function localizeBusinessComputed(group, key, ...args) {
@@ -938,9 +797,6 @@
     detailModalEl.addEventListener('click', event => { if (event.target === detailModalEl) closeDetailModal(); });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && detailModalEl.classList.contains('open')) closeDetailModal(); });
     document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => btn.addEventListener('click', () => setLanguage(btn.dataset.lang)));
-    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', toggleMobileSidebar);
-    if (mobileNavBackdropEl) mobileNavBackdropEl.addEventListener('click', closeMobileSidebar);
-    window.addEventListener('resize', () => { if (window.innerWidth > 880) closeMobileSidebar(); });
 
     if (typeof window.XLSX === "undefined") {
       dashboardEl.innerHTML = `<div class="empty">SheetJS (XLSX) could not be loaded. Check <code>assets/vendor/xlsx.full.min.js</code> or internet access for CDN fallback.</div>`;
@@ -966,14 +822,10 @@
         uploadLabel: langPack.uploadLabel,
         uploadHint: langPack.uploadHint,
         importSpinnerLabel: langPack.importLoading,
-        importOverlayBadge: langPack.importOverlayBadge,
-        importOverlayTitle: langPack.importOverlayTitle,
-        importOverlayText: langPack.importLoading,
         detailModalClose: langPack.close,
         clearFileBtn: langPack.clear,
         selectFileBtn: langPack.chooseFile,
-        fileNameLabel: fileInput.files && fileInput.files[0] ? fileInput.files[0].name : langPack.noFile,
-        siteDescription: langPack.siteDescription
+        fileNameLabel: fileInput.files && fileInput.files[0] ? fileInput.files[0].name : langPack.noFile
       };
       Object.entries(ids).forEach(([id, value]) => {
         const el = document.getElementById(id);
@@ -1093,23 +945,6 @@
       return match ? match[1] : '';
     }
 
-    function isInvitationBucket(value, variants) {
-      const current = normalize(decodeMojibakeText(value || ''));
-      return variants.some(variant => current === normalize(decodeMojibakeText(variant)));
-    }
-
-    function isInvitedRecentBucket(value) {
-      return isInvitationBucket(value, ['≤30 jours', 'â‰¤30 jours']);
-    }
-
-    function isInvitedAgingBucket(value) {
-      return isInvitationBucket(value, ['31–90 jours', '31â€“90 jours']);
-    }
-
-    function isNeverInvitedBucket(value) {
-      return isInvitationBucket(value, ['Jamais envoyée', 'Jamais envoyÃ©e']);
-    }
-
     function isTestOrSystem(row, email, company, role) {
       const hay = normalize([email, company, role, row['First name'], row['Last name']].join(' '));
       return ['test', 'demo', 'sample', 'admin', 'system', 'fake', 'dummy', 'noreply', 'do not use'].some(token => hay.includes(token));
@@ -1159,68 +994,8 @@
       return d.toLocaleString(currentLang === 'fr' ? 'fr-FR' : 'en-GB');
     }
 
-    function decodeMojibakeText(text) {
-      if (typeof text !== 'string' || !text) return text;
-      return text
-        .replace(/â€™/g, '’')
-        .replace(/â€˜/g, '‘')
-        .replace(/â€œ/g, '“')
-        .replace(/â€/g, '”')
-        .replace(/â€“/g, '–')
-        .replace(/â€”/g, '—')
-        .replace(/â€¦/g, '…')
-        .replace(/â€¢/g, '•')
-        .replace(/â†’/g, '→')
-        .replace(/â†/g, '←')
-        .replace(/â‰¥/g, '≥')
-        .replace(/â‰¤/g, '≤')
-        .replace(/â‰ /g, '≠')
-        .replace(/â–²/g, '▲')
-        .replace(/â–¼/g, '▼')
-        .replace(/Â«/g, '«')
-        .replace(/Â»/g, '»')
-        .replace(/Â·/g, '·')
-        .replace(/Â§/g, '§')
-        .replace(/Ã€/g, 'À')
-        .replace(/Ã‚/g, 'Â')
-        .replace(/Ã‡/g, 'Ç')
-        .replace(/Ãˆ/g, 'È')
-        .replace(/Ã‰/g, 'É')
-        .replace(/ÃŠ/g, 'Ê')
-        .replace(/ÃŽ/g, 'Î')
-        .replace(/Ã”/g, 'Ô')
-        .replace(/Ã™/g, 'Ù')
-        .replace(/Ã›/g, 'Û')
-        .replace(/Ãœ/g, 'Ü')
-        .replace(/Ã /g, 'à')
-        .replace(/Ã¡/g, 'á')
-        .replace(/Ã¢/g, 'â')
-        .replace(/Ã£/g, 'ã')
-        .replace(/Ã§/g, 'ç')
-        .replace(/Ã¨/g, 'è')
-        .replace(/Ã©/g, 'é')
-        .replace(/Ãª/g, 'ê')
-        .replace(/Ã«/g, 'ë')
-        .replace(/Ã´/g, 'ô')
-        .replace(/Ã¶/g, 'ö')
-        .replace(/Ã¹/g, 'ù')
-        .replace(/Ã»/g, 'û')
-        .replace(/Ã¼/g, 'ü')
-        .replace(/Ã±/g, 'ñ')
-        .replace(/Ã/g, 'à');
-    }
-
-    function decodeUiValue(value) {
-      if (typeof value === 'string') return decodeMojibakeText(value);
-      if (Array.isArray(value)) return value.map(decodeUiValue);
-      return value;
-    }
-
     function escapeHtml(text) {
-      return String(decodeMojibakeText(text ?? ''))
-        .replace(/â€”/g, '-')
-        .replace(/â€“/g, '-')
-        .replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+      return String(text ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
     function destroyCharts() {
@@ -1285,10 +1060,10 @@
       if (filterState.domainType !== 'all') badges.push({ label: tUI('filterBadgeDomain'), value: localizeDomainType(filterState.domainType) });
       if (filterState.status !== 'all') badges.push({ label: tUI('filterBadgeStatus'), value: filterState.status === 'active' ? tUI('active') : tUI('inactive') });
       // Step 5 — new filter badges
-      if (filterState.cluster !== 'all') badges.push({ label: tUI('filterBadgeCluster'), value: Array.isArray(filterState.cluster) ? filterState.cluster.join(', ') : filterState.cluster });
+      if (filterState.cluster !== 'all') badges.push({ label: tUI('filterBadgeCluster'), value: filterState.cluster });
       if (filterState.profileType !== 'all') badges.push({ label: tUI('filterBadgeProfile'), value: filterState.profileType });
       if (filterState.scientific !== 'all') badges.push({ label: tUI('filterBadgeScientific'), value: filterState.scientific });
-      if (filterState.field !== 'all') badges.push({ label: tUI('filterBadgeField'), value: Array.isArray(filterState.field) ? filterState.field.join(', ') : filterState.field });
+      if (filterState.field !== 'all') badges.push({ label: tUI('filterBadgeField'), value: filterState.field });
       if (filterState.continent !== 'all') badges.push({ label: tUI('filterBadgeContinent'), value: filterState.continent });
       if (filterState.activity !== 'all') badges.push({ label: tUI('filterBadgeActivity'), value: filterState.activity === 'recent' ? tUI('activityRecent') : tUI('activityDormant') });
       return badges;
@@ -1345,89 +1120,6 @@
 
     function renderEmptyState() {
       dashboardEl.innerHTML = `<div class="empty" id="initialEmpty">${escapeHtml(STATIC_TEXT[currentLang].initialEmpty)}</div>`;
-      refreshSidebarNavigation();
-    }
-
-    function slugifySectionLabel(label, index) {
-      const fallback = `section-${index + 1}`;
-      const slug = normalize(label)
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-      return slug || fallback;
-    }
-
-    function refreshSidebarNavigation() {
-      if (!sidebarNavEl) return;
-      if (sidebarScrollHandler) {
-        window.removeEventListener('scroll', sidebarScrollHandler);
-        sidebarScrollHandler = null;
-      }
-
-      const items = [{ id: 'section-excel-import', label: currentLang === 'fr' ? 'Import Excel' : 'Excel import' }];
-      const sectionTitles = [
-        ...dashboardEl.querySelectorAll(':scope > .section-title'),
-        ...dashboardEl.querySelectorAll('.dashboard-nav-card > .section-title')
-      ];
-      const seen = new Set(items.map(item => item.id));
-      const hiddenNavLabels = new Set([
-        'executive summary', 'header', 'management reading', 'engagement tiers', 'activation funnel', 'detected columns and rules',
-        'en-tête', 'lecture managériale', 'niveaux d\'engagement', 'entonnoir d\'activation', 'colonnes détectées et règles', 'aide à la décision'
-      ]);
-
-      sectionTitles.forEach((titleEl, index) => {
-        const h2 = titleEl.querySelector('h2');
-        const label = h2 ? h2.textContent.trim() : '';
-        if (!label) return;
-        const normalizedLabel = label.toLowerCase();
-        const id = titleEl.id || `dashboard-section-${slugifySectionLabel(label, index)}`;
-        titleEl.id = id;
-        titleEl.classList.add('scroll-anchor');
-        if (hiddenNavLabels.has(normalizedLabel)) return;
-        if (!seen.has(id)) {
-          seen.add(id);
-          items.push({ id, label });
-        }
-      });
-
-      const activeFilters = Object.values(filterState).filter(value => value && value !== 'all').length;
-      const contextLabel = activeFilters
-        ? (currentLang === 'fr' ? `${activeFilters} filtre(s) actif(s)` : `${activeFilters} active filter(s)`)
-        : (currentLang === 'fr' ? 'Vue globale' : 'Global view');
-
-      sidebarNavEl.innerHTML = `
-        <div class="sidebar-nav-context">${escapeHtml(contextLabel)}</div>
-        ${items.map((item, index) => `<a href="#${escapeHtml(item.id)}" class="sidebar-link ${index === 0 ? 'active' : ''}" data-section-target="${escapeHtml(item.id)}">${escapeHtml(item.label)}</a>`).join('')}
-      `;
-
-      const links = Array.from(sidebarNavEl.querySelectorAll('.sidebar-link[data-section-target]'));
-      const setActive = id => {
-        links.forEach(link => link.classList.toggle('active', link.dataset.sectionTarget === id));
-      };
-
-      links.forEach(link => {
-        link.addEventListener('click', event => {
-          event.preventDefault();
-          const targetId = link.dataset.sectionTarget;
-          const target = document.getElementById(targetId);
-          if (!target) return;
-          closeMobileSidebar();
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          setActive(targetId);
-        });
-      });
-
-      sidebarScrollHandler = () => {
-        let activeId = items[0]?.id || '';
-        items.forEach(item => {
-          const target = document.getElementById(item.id);
-          if (!target) return;
-          const rect = target.getBoundingClientRect();
-          if (rect.top <= 130) activeId = item.id;
-        });
-        if (activeId) setActive(activeId);
-      };
-      window.addEventListener('scroll', sidebarScrollHandler, { passive: true });
-      sidebarScrollHandler();
     }
 
     // Import spinner — shown while the file is being parsed + enriched + rendered.
@@ -1441,7 +1133,6 @@
     function hideImportSpinner() {
       const el = document.getElementById('importSpinner');
       if (el) el.style.display = 'none';
-      hideImportOverlay();
     }
 
     function clearLoadedFile() {
@@ -1467,25 +1158,20 @@
         lastModified: file.lastModified ? new Date(file.lastModified) : null
       };
       showImportSpinner();
-      showImportOverlay(file.name);
       const reader = new FileReader();
-      reader.onload = async e => {
+      reader.onload = e => {
         const data = new Uint8Array(e.target.result);
-        advanceImportOverlay('importStageParsing', 24);
         // Double-RAF — the first frame lets the browser actually paint the spinner,
         // the second frame runs the heavy synchronous work. Without this, the spinner
         // CSS is set but never repainted before the JS thread blocks for 1–2 s.
         requestAnimationFrame(() => {
-          requestAnimationFrame(async () => {
+          requestAnimationFrame(() => {
             try {
-              advanceImportOverlay('importStageParsing', 42);
               const workbook = XLSX.read(data, { type: 'array', cellDates: true });
               const firstSheetName = workbook.SheetNames[0];
               const sheet = workbook.Sheets[firstSheetName];
               const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-              advanceImportOverlay('importStageAnalyzing', 68);
-              await processWorkbook(file.name, rows, firstSheetName);
-              advanceImportOverlay('importStageFinishing', 92);
+              processWorkbook(file.name, rows, firstSheetName);
             } finally {
               hideImportSpinner();
             }
@@ -1686,7 +1372,7 @@
       });
     }
 
-    async function processWorkbook(fileName, rows, sheetName) {
+    function processWorkbook(fileName, rows, sheetName) {
       destroyCharts();
       if (!rows.length) {
         dashboardEl.innerHTML = `<div class="empty">${escapeHtml(tUI('noUsableRows'))}</div>`;
@@ -1695,10 +1381,7 @@
       baseRows = enrichRows(rows, sheetName);
       filterState = { institution: 'all', country: 'all', domainType: 'all', status: 'all', cluster: 'all', profileType: 'all', scientific: 'all', field: 'all', continent: 'all', activity: 'all' };
       currentFileMeta = { ...(currentFileMeta || {}), fileName, sheetName, rowCount: baseRows.length };
-      advanceImportOverlay('importStageRendering', 84);
-      await new Promise(resolve => setTimeout(resolve, 0));
       applyFiltersAndRender();
-      await new Promise(resolve => requestAnimationFrame(resolve));
     }
 
     function getFilteredRows() {
@@ -1709,16 +1392,10 @@
         if (filterState.status === 'active' && !r.active) return false;
         if (filterState.status === 'inactive' && r.active) return false;
         // Step 5 — new filter dimensions
-        if (filterState.cluster !== 'all') {
-          const clusters = Array.isArray(filterState.cluster) ? filterState.cluster : [filterState.cluster];
-          if (!clusters.some(cluster => (r.subNetworks || []).includes(cluster))) return false;
-        }
+        if (filterState.cluster !== 'all' && !(r.subNetworks || []).includes(filterState.cluster)) return false;
         if (filterState.profileType !== 'all' && r.profileType !== filterState.profileType) return false;
         if (filterState.scientific !== 'all' && r.scientificProfile !== filterState.scientific) return false;
-        if (filterState.field !== 'all') {
-          const fields = Array.isArray(filterState.field) ? filterState.field : [filterState.field];
-          if (!fields.some(field => (r.industries || []).includes(field))) return false;
-        }
+        if (filterState.field !== 'all' && !(r.industries || []).includes(filterState.field)) return false;
         if (filterState.continent !== 'all' && (r.continent || '') !== filterState.continent) return false;
         if (filterState.activity === 'recent' && !r.activeInLast90d) return false;
         if (filterState.activity === 'dormant' && !(r.active && !r.activeInLast90d)) return false;
@@ -2139,59 +1816,49 @@
       const items = [];
       if (s.invitedOld > 0) {
         items.push({ level: 'bad', title: tUI('insightOldInvitationsTitle'),
-          text: tUI('insightOldInvitations', s.invitedOld),
-          drilldown: { type: 'filter', filterKey: 'invitedOld' } });
+          text: tUI('insightOldInvitations', s.invitedOld) });
       }
       if (s.unreachable > 0) {
         items.push({ level: 'warn', title: tUI('insightUnreachableTitle'),
-          text: tUI('insightUnreachable', s.unreachable),
-          drilldown: { type: 'filter', filterKey: 'unreachable' } });
+          text: tUI('insightUnreachable', s.unreachable) });
       }
       if (s.dormantActivated > 0) {
         items.push({ level: 'warn', title: tUI('insightDormantActivatedTitle'),
-          text: tUI('insightDormantActivated', s.dormantActivated),
-          drilldown: { type: 'filter', filterKey: 'dormantActivated' } });
+          text: tUI('insightDormantActivated', s.dormantActivated) });
       }
       if (s.stalePresence > 0) {
         items.push({ level: 'warn', title: tUI('insightStalePresenceTitle'),
-          text: tUI('insightStalePresence', s.stalePresence),
-          drilldown: { type: 'filter', filterKey: 'stalePresence' } });
+          text: tUI('insightStalePresence', s.stalePresence) });
       }
       // Country-level signal — only if at least 10 users in that country
       const weakCountries = (s.countries || []).filter(c => c.totalUsers >= 10 && (c.activationRate || 0) < 30);
       if (weakCountries.length) {
         const sample = weakCountries.slice(0, 4).map(c => `${c.country} (${(c.activationRate || 0).toFixed(0)}%)`).join(', ');
         items.push({ level: 'bad', title: tUI('insightWeakCountriesTitle'),
-          text: tUI('insightWeakCountries', weakCountries.length, sample),
-          drilldown: { type: 'countries', values: weakCountries.map(c => c.country) } });
+          text: tUI('insightWeakCountries', weakCountries.length, sample) });
       }
       // Institute-level signal — institutes with ≥5 inactive users with invitation >90d
       const heavyInstitutes = (s.institutes || []).filter(i => i.invitedOld >= 5);
       if (heavyInstitutes.length) {
         const sample = heavyInstitutes.slice(0, 4).map(i => `${i.institution} (${i.invitedOld})`).join(', ');
         items.push({ level: 'bad', title: tUI('insightHeavyInstitutesTitle'),
-          text: tUI('insightHeavyInstitutes', heavyInstitutes.length, sample),
-          drilldown: { type: 'institutesInvitedOld', values: heavyInstitutes.map(i => i.institution) } });
+          text: tUI('insightHeavyInstitutes', heavyInstitutes.length, sample) });
       }
       if (s.duplicateEmails > 0) {
         items.push({ level: 'warn', title: tUI('insightDuplicatesTitle'),
-          text: tUI('insightDuplicates', s.duplicateEmails),
-          drilldown: { type: 'filter', filterKey: 'duplicateEmail' } });
+          text: tUI('insightDuplicates', s.duplicateEmails) });
       }
       if (s.distinctAffiliationValues > 80) {
         items.push({ level: 'info', title: tUI('insightNoisyAffiliationTitle'),
-          text: tUI('insightNoisyAffiliation', s.distinctAffiliationValues),
-          drilldown: { type: 'filter', filterKey: 'noisyAffiliation' } });
+          text: tUI('insightNoisyAffiliation', s.distinctAffiliationValues) });
       }
       if (s.missingCountryActivated > 0 && s.active > 0 && (s.missingCountryActivated / s.active) > 0.3) {
         items.push({ level: 'info', title: tUI('insightMissingCountryTitle'),
-          text: tUI('insightMissingCountry', s.missingCountryActivated),
-          drilldown: { type: 'filter', filterKey: 'missingCountry' } });
+          text: tUI('insightMissingCountry', s.missingCountryActivated) });
       }
       if (s.profileIncompleteActivated > 0 && s.active > 0 && (s.profileIncompleteActivated / s.active) > 0.5) {
         items.push({ level: 'info', title: tUI('insightProfileIncompleteTitle'),
-          text: tUI('insightProfileIncomplete', s.profileIncompleteActivated),
-          drilldown: { type: 'filter', filterKey: 'profileIncomplete' } });
+          text: tUI('insightProfileIncomplete', s.profileIncompleteActivated) });
       }
       // Step 4 — funnel speed, data-quality, ambassador opportunity, slipping engagement, soft churn
       if (s.activationLag && s.activationLag.samples > 0 && s.activationLag.p50 !== null && s.activationLag.p50 > 14) {
@@ -2200,30 +1867,25 @@
       }
       if (s.activatedNoInvitation > 0) {
         items.push({ level: 'info', title: tUI('insightActivatedNoInvitationTitle'),
-          text: tUI('insightActivatedNoInvitation', s.activatedNoInvitation),
-          drilldown: { type: 'filter', filterKey: 'activatedNoInvitation' } });
+          text: tUI('insightActivatedNoInvitation', s.activatedNoInvitation) });
       }
       if (s.ambassadorCandidates > 0) {
         items.push({ level: 'good', title: tUI('insightAmbassadorsTitle'),
-          text: tUI('insightAmbassadors', s.ambassadorCandidates),
-          drilldown: { type: 'filter', filterKey: 'ambassador' } });
+          text: tUI('insightAmbassadors', s.ambassadorCandidates) });
       }
       if (s.churnSlipping > 0) {
         items.push({ level: 'warn', title: tUI('insightChurnSlippingTitle'),
-          text: tUI('insightChurnSlipping', s.churnSlipping),
-          drilldown: { type: 'filter', filterKey: 'churnSlipping' } });
+          text: tUI('insightChurnSlipping', s.churnSlipping) });
       }
       if (s.lastJobEnded > 0) {
         items.push({ level: 'info', title: tUI('insightLastJobEndedTitle'),
-          text: tUI('insightLastJobEnded', s.lastJobEnded),
-          drilldown: { type: 'filter', filterKey: 'lastJobEnded' } });
+          text: tUI('insightLastJobEnded', s.lastJobEnded) });
       }
       // Étape A — data-quality insight: large "Undefined" cluster cohort
       if (s.undefinedClusterCount > 0 && s.total > 0 && (s.undefinedClusterCount / s.total) > 0.10) {
         const pct = (s.undefinedClusterCount / s.total) * 100;
         items.push({ level: 'warn', title: tUI('insightUndefinedClusterTitle'),
-          text: tUI('insightUndefinedCluster', s.undefinedClusterCount, pct),
-          drilldown: { type: 'undefinedCluster' } });
+          text: tUI('insightUndefinedCluster', s.undefinedClusterCount, pct) });
       }
       if (!items.length) {
         items.push({ level: 'good', title: tUI('insightAllGoodTitle'), text: tUI('insightAllGood') });
@@ -2286,22 +1948,39 @@
     }
 
     function renderDashboard(summary) {
-      cancelScheduledPostRenderWork();
-      const cycleId = ++renderCycleId;
       const t = summary.totals;
       const instituteBanner = renderInstituteViewBanner(summary);
       const segmentExportBar = instituteBanner ? '' : renderSegmentExportBar(summary);
       dashboardEl.innerHTML = `
+        <div class="summary-grid">
+          <div class="card">
+            <div class="section-title" style="margin-top:0;"><h2>${escapeHtml(tUI('keyMessagesTitle'))}</h2><span>${formatInt(t.total)} rows</span></div>
+            <div class="key-messages">
+              ${summary.keyMessages.map(m => `<div class="key-message"><strong>${escapeHtml(m.title)}</strong><div>${escapeHtml(m.text)}</div></div>`).join('')}
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-title" style="margin-top:0;"><h2>${escapeHtml(tUI('lastUpdateTitle'))}</h2><span>${escapeHtml(currentFileMeta?.sheetName || '—')}</span></div>
+            <div class="last-update-grid">
+              <div class="card"><div class="meta-label">${escapeHtml(tUI('importedFile'))}</div><div class="small"><strong>${escapeHtml(currentFileMeta?.fileName || tUI('notAvailable'))}</strong></div></div>
+              <div class="card"><div class="meta-label">${escapeHtml(tUI('importDate'))}</div><div class="small"><strong>${escapeHtml(formatDateTime(currentFileMeta?.importedAt))}</strong></div></div>
+              <div class="card"><div class="meta-label">${escapeHtml(tUI('fileModified'))}</div><div class="small"><strong>${escapeHtml(formatDateTime(currentFileMeta?.lastModified))}</strong></div></div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" style="margin-bottom:18px;">
           ${renderSearchCard()}
         </div>
 
-        <div class="card dashboard-nav-card" style="margin-bottom:18px;">
+        <div class="card" style="margin-bottom:18px;">
           <div class="section-title" style="margin-top:0;"><h2>${escapeHtml(tUI('globalFiltersTitle'))}</h2><span>${escapeHtml(tUI('filterHint'))}</span></div>
           <div class="global-filters">
             <select id="globalFilterInstitution">${renderSelectOptions(getInstitutionOptions(), filterState.institution, tUI('filterInstitution'))}</select>
-            ${renderMultiSelect('cluster', getClusterOptions(), filterState.cluster, tUI('filterCluster'))}
-            ${renderMultiSelect('field', getFieldOptions(), filterState.field, tUI('filterField'))}
+            <select id="globalFilterCluster">${renderSelectOptions(getClusterOptions(), filterState.cluster, tUI('filterCluster'))}</select>
+            <select id="globalFilterProfileType">${renderSelectOptions(getProfileTypeOptions(), filterState.profileType, tUI('filterProfileType'))}</select>
+            <select id="globalFilterScientific">${renderSelectOptions(getScientificOptions(), filterState.scientific, tUI('filterScientific'))}</select>
+            <select id="globalFilterField">${renderSelectOptions(getFieldOptions(), filterState.field, tUI('filterField'))}</select>
             <select id="globalFilterContinent">${renderSelectOptions(getContinentOptions(), filterState.continent, tUI('filterContinent'))}</select>
             <select id="globalFilterCountry">${renderSelectOptions(getCountryOptions(), filterState.country, tUI('filterCountry'))}</select>
             <select id="globalFilterDomainType">${renderSelectOptions(getDomainTypeOptions(), localizeDomainType(filterState.domainType), tUI('filterDomainType'))}</select>
@@ -2322,9 +2001,43 @@
           <p class="exec-summary-text">${escapeHtml(summary.executiveSummary || '')}</p>
         </div>
 
+        <div class="section-title"><h2>${escapeHtml(tUI('decisionInsightsTitle'))}</h2><span>${escapeHtml(tUI('decisionInsightsSub'))}</span></div>
+        <div class="card decision-insights">
+          ${(summary.decisionInsights || []).map(it => `
+            <div class="alert ${it.level}">
+              <div class="alert-title">${escapeHtml(it.title)}</div>
+              <div>${escapeHtml(it.text)}</div>
+            </div>
+          `).join('')}
+          <div class="filters-actions" style="margin-top:12px;">
+            <button type="button" id="exportDecisionReportBtn" class="export-btn">${escapeHtml(tUI('exportDecisionReport'))}</button>
+            <button type="button" id="exportPlaybookBtn" class="export-btn">${escapeHtml(tUI('exportPlaybookBtn'))}</button>
+          </div>
+        </div>
+
         <div class="kpi-grid focus-kpis">
           <div class="card focus-kpi activation"><div class="kpi-label">${escapeHtml(tUI('focusActivation'))}</div><div class="kpi-value">${formatPct(t.activationRate)}</div><div class="kpi-sub">${escapeHtml(tUI('focusActivationSub'))}</div></div>
           <div class="card focus-kpi problems kpi-card-clickable" tabindex="0" data-filter="realProblems" data-label="Real problems"><div class="kpi-label">${escapeHtml(tUI('focusProblems'))}</div><div class="kpi-value">${formatInt(t.realProblems)}</div><div class="kpi-sub">${escapeHtml(tUI('focusProblemsSub'))}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+        </div>
+
+        <div class="section-title"><h2>${escapeHtml(tUI('userProfileTitle'))}</h2><span>${escapeHtml(tUI('userProfileSub'))}</span></div>
+        <div class="kpi-grid">
+          <div class="card kpi-blue kpi-card-clickable" tabindex="0" data-filter="profileAdmin" data-label="${escapeHtml(tUI('profileAdminLabel'))}" title="${escapeHtml(tUI('tipProfileType'))}"><div class="kpi-label">${escapeHtml(tUI('profileAdminLabel'))}</div><div class="kpi-value">${formatInt(t.profileAdmin)}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+          <div class="card kpi-blue kpi-card-clickable" tabindex="0" data-filter="profileScientific" data-label="${escapeHtml(tUI('profileScientificLabel'))}" title="${escapeHtml(tUI('tipProfileType'))}"><div class="kpi-label">${escapeHtml(tUI('profileScientificLabel'))}</div><div class="kpi-value">${formatInt(t.profileScientific)}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="profileMemberUnknown" data-label="${escapeHtml(tUI('profileMemberUnknownLabel'))}" title="${escapeHtml(tUI('tipProfileType'))}"><div class="kpi-label">${escapeHtml(tUI('profileMemberUnknownLabel'))}</div><div class="kpi-value">${formatInt(t.profileMemberUnknown)}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+        </div>
+        <div class="kpi-grid" style="margin-top:14px;">
+          <div class="card kpi-green kpi-card-clickable" tabindex="0" data-filter="scientificScientific" data-label="${escapeHtml(tUI('scientificScientificLabel'))}" title="${escapeHtml(tUI('tipScientific'))}"><div class="kpi-label">${escapeHtml(tUI('scientificScientificLabel'))}</div><div class="kpi-value">${formatInt(t.scientificScientific)}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+          <div class="card kpi-orange kpi-card-clickable" tabindex="0" data-filter="scientificNonScientific" data-label="${escapeHtml(tUI('scientificNonLabel'))}" title="${escapeHtml(tUI('tipScientific'))}"><div class="kpi-label">${escapeHtml(tUI('scientificNonLabel'))}</div><div class="kpi-value">${formatInt(t.scientificNonScientific)}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+          <div class="card kpi-card-clickable" tabindex="0" data-filter="scientificUnknown" data-label="${escapeHtml(tUI('scientificUnknownLabel'))}" title="${escapeHtml(tUI('tipScientific'))}"><div class="kpi-label">${escapeHtml(tUI('scientificUnknownLabel'))}</div><div class="kpi-value">${formatInt(t.scientificUnknown)}</div><div class="kpi-hint">${escapeHtml(tUI('clickToViewPeople'))}</div></div>
+        </div>
+
+        <div class="section-title"><h2>Header</h2><span>Reading the real structure of the file</span></div>
+        <div class="meta-grid">
+          <div class="card"><div class="meta-label">Analyzed file</div><div class="meta-value">${escapeHtml(currentFileMeta?.fileName || '—')}</div></div>
+          <div class="card"><div class="meta-label">Sheet read</div><div class="meta-value">${escapeHtml(currentFileMeta?.sheetName || '—')}</div></div>
+          <div class="card"><div class="meta-label">Institutes detected</div><div class="meta-value">${formatInt(t.institutesDetected)}</div></div>
+          <div class="card"><div class="meta-label">Email domains detected</div><div class="meta-value">${formatInt(t.domainsDetected)}</div></div>
         </div>
 
         <div class="section-title"><h2>Main KPIs</h2><span>Rules automatically applied from the Excel file</span></div>
@@ -2332,13 +2045,15 @@
           ${renderMainKpis(t)}
         </div>
 
+        <div class="section-title"><h2>Management reading</h2><span>Simple alerts for decision-makers</span></div>
+        <div class="alerts">${summary.alerts.map(a => `<div class="alert ${a.level}"><div class="alert-title">${escapeHtml(a.title)}</div><div>${escapeHtml(a.text)}</div></div>`).join('')}</div>
+
         <div class="section-title"><h2>Charts</h2><span>Activation, invitations and most / least active institutes</span></div>
         <div class="chart-grid">
           <div class="card"><div class="chart-box"><canvas id="activationChart"></canvas></div></div>
           <div class="card"><div class="chart-box"><canvas id="invitationChart"></canvas></div></div>
           <div class="card"><div class="chart-box"><canvas id="topActiveInstitutesChart"></canvas></div></div>
           <div class="card"><div class="chart-box"><canvas id="topLeastActiveInstitutesChart"></canvas></div></div>
-          <div class="card"><div class="chart-box"><canvas id="clusterChart"></canvas></div></div>
           <div class="card"><div class="chart-box"><canvas id="domainTypeChart"></canvas></div></div>
         </div>
 
@@ -2406,22 +2121,8 @@
         <div class="section-title"><h2>Analysis by email domain</h2><span>Detection of personal domains and inactive pockets</span></div>
         <div class="card table-card"><div class="table-toolbar"></div><div class="table-wrap">${renderDomainTable(summary.domains)}</div><div class="table-bottom-toolbar"></div></div>
 
-        <div class="section-title"><h2>Decision insights</h2><span>Recommendations and actionable findings</span></div>
-        <div class="card decision-insights">
-          ${(summary.decisionInsights || []).map(it => `
-            <div class="alert ${it.level}${it.drilldown ? ' insight-clickable' : ''}"${it.drilldown ? ' tabindex="0" role="button"' : ''} data-insight-title="${escapeHtml(it.title)}" data-insight-index="${escapeHtml(String((summary.decisionInsights || []).indexOf(it)))}">
-              <div class="alert-title">${escapeHtml(it.title)}</div>
-              <div>${escapeHtml(it.text)}${it.drilldown ? ` <span class="small muted">${escapeHtml(tUI('clickToViewPeople'))}</span>` : ''}</div>
-            </div>
-          `).join('')}
-          <div class="recommendations">
-            ${summary.recommendations.map(r => `<div class="rec"><strong>${escapeHtml(r.title)}</strong><div>${escapeHtml(r.text)}</div></div>`).join('')}
-          </div>
-          <div class="filters-actions" style="margin-top:12px;">
-            <button type="button" id="exportDecisionReportBtn" class="export-btn">${escapeHtml(tUI('exportDecisionReport'))}</button>
-            <button type="button" id="exportPlaybookBtn" class="export-btn">${escapeHtml(tUI('exportPlaybookBtn'))}</button>
-          </div>
-        </div>
+        <div class="section-title"><h2>Decision support</h2><span>Recommendations linked to measurable findings</span></div>
+        <div class="card recommendations">${summary.recommendations.map(r => `<div class="rec"><strong>${escapeHtml(r.title)}</strong><div>${escapeHtml(r.text)}</div></div>`).join('')}</div>
 
         <div class="section-title"><h2>${escapeHtml(tUI('dataQualityTitle'))}</h2><span>${escapeHtml(tUI('dataQualitySub'))}</span></div>
         <div class="card">
@@ -2450,22 +2151,13 @@
       `;
 
       // Refresh the global-search index — cheap and keeps it aligned with whatever's currently filtered.
-      currentSearchIndex = [];
+      currentSearchIndex = buildSearchIndex(summary);
 
       bindGlobalFilterEvents();
       bindDashboardInteractions();
       bindGlobalSearchEvents();
-      postRenderFrameId = requestAnimationFrame(() => {
-        postRenderFrameId = null;
-        if (cycleId !== renderCycleId) return;
-        createCharts(summary);
-        if (currentLang === 'fr') translateUiToFrench(dashboardEl);
-        refreshSidebarNavigation();
-      });
-      scheduleIdleWork(() => {
-        if (cycleId !== renderCycleId) return;
-        currentSearchIndex = buildSearchIndex(summary);
-      });
+      createCharts(summary);
+      if (currentLang === 'fr') translateUiToFrench(dashboardEl);
     }
 
     function renderMainKpis(t) {
@@ -2504,9 +2196,8 @@
         ['Activated without a last login date','Activés sans date de dernière connexion'], ['Inactive for >180 days','Inactifs depuis >180 jours'], ['Based on Last log in date','Basé sur Last log in date'],
         ['Missing affiliations','Affiliations manquantes'], ['Click to view people and emails','Cliquer pour voir les personnes et emails'], ['Analysis by institute','Analyse par institut'],
         ['Activation and follow-up by institute','Activation et suivi par institut'], ['Analysis by email domain','Analyse par domaine email'],
-        ['Email domain','Domaine email'], ['Domain email','Domaine email'],
         ['Detection of personal domains and inactive pockets','Détection des domaines personnels et des poches de non-activation'], ['Decision support','Aide à la décision'],
-        ['Decision insights','Insights de décision'], ['Recommendations and actionable findings','Recommandations et constats actionnables'], ['Recommendations linked to measurable findings','Recommandations liées à des constats mesurables'], ['Final consolidated table','Tableau consolidé final'],
+        ['Recommendations linked to measurable findings','Recommandations liées à des constats mesurables'], ['Final consolidated table','Tableau consolidé final'],
         ['Summary view for monitoring','Vue synthèse pour pilotage'], ['Detected columns and rules','Colonnes détectées et règles'], ['Fields used:','Champs utilisés :'],
         ['Good','Bon'], ['Watch','À surveiller'], ['Priority','Priorité'], ['Institution','Institution'], ['Domain','Domaine'], ['Type','Type'],
         ['Status','Statut'], ['Action','Action'], ['Users — ','Utilisateurs — '],
@@ -2523,7 +2214,6 @@
         let text = n.nodeValue;
         if (!text || !text.trim()) return;
         replacements.forEach((fr,en) => { text = text.split(en).join(fr); });
-        text = text.replace(/Domaineee email/g, 'Domaine email');
         n.nodeValue = text;
       });
     }
@@ -2536,29 +2226,10 @@
         if (opt === 'dormant')  return tUI('activityDormant');
         return opt;
       };
-      const selectedSet = Array.isArray(selectedValue) ? new Set(selectedValue) : new Set([selectedValue]);
       return [
         `<option value="all">${escapeHtml(label)} — ${escapeHtml(tUI('all'))}</option>`,
-        ...options.map(opt => `<option value="${escapeHtml(opt)}"${selectedSet.has(opt) ? ' selected' : ''}>${escapeHtml(displayOf(opt))}</option>`)
+        ...options.map(opt => `<option value="${escapeHtml(opt)}"${opt === selectedValue ? ' selected' : ''}>${escapeHtml(displayOf(opt))}</option>`)
       ].join('');
-    }
-
-    function renderMultiSelect(filterName, options, selectedValue, label) {
-      const selectedValues = Array.isArray(selectedValue) ? selectedValue : [];
-      const displayText = selectedValues.length
-        ? selectedValues.map(escapeHtml).join(', ')
-        : `${escapeHtml(label)} — ${escapeHtml(tUI('all'))}`;
-
-      return `
-        <div class="multi-select" data-filter="${escapeHtml(filterName)}" data-label="${escapeHtml(label)}">
-          <button type="button" class="multi-select-toggle" aria-haspopup="listbox" aria-expanded="false">${displayText}</button>
-          <div class="multi-select-menu" role="listbox" aria-multiselectable="true" hidden>
-            ${options.map(opt => `
-              <label class="multi-select-option"><input type="checkbox" value="${escapeHtml(opt)}"${selectedValues.includes(opt) ? ' checked' : ''}> ${escapeHtml(opt)}</label>
-            `).join('')}
-          </div>
-        </div>
-      `;
     }
 
     function getInstitutionOptions() { return [...new Set(baseRows.map(r => r.mappedInstitution).filter(v => v && v !== 'Non rattaché'))].sort(); }
@@ -2612,8 +2283,6 @@
       const country = document.getElementById('globalFilterCountry');
       const domainType = document.getElementById('globalFilterDomainType');
       const status = document.getElementById('globalFilterStatus');
-      const continent = document.getElementById('globalFilterContinent');
-      const activity = document.getElementById('globalFilterActivity');
       if (!inst) return;
       inst.addEventListener('change', e => { filterState.institution = e.target.value; applyFiltersAndRender(); });
       country.addEventListener('change', e => { filterState.country = e.target.value; applyFiltersAndRender(); });
@@ -2622,6 +2291,17 @@
         filterState.domainType = e.target.value === 'all' ? 'all' : (reverse[e.target.value] || e.target.value);
         applyFiltersAndRender();
       });
+      // Step 5 — wire new filter dropdowns
+      const cluster = document.getElementById('globalFilterCluster');
+      const profileType = document.getElementById('globalFilterProfileType');
+      const scientific = document.getElementById('globalFilterScientific');
+      const field = document.getElementById('globalFilterField');
+      const continent = document.getElementById('globalFilterContinent');
+      const activity = document.getElementById('globalFilterActivity');
+      if (cluster)     cluster.addEventListener('change',     e => { filterState.cluster = e.target.value; applyFiltersAndRender(); });
+      if (profileType) profileType.addEventListener('change', e => { filterState.profileType = e.target.value; applyFiltersAndRender(); });
+      if (scientific)  scientific.addEventListener('change',  e => { filterState.scientific = e.target.value; applyFiltersAndRender(); });
+      if (field)       field.addEventListener('change',       e => { filterState.field = e.target.value; applyFiltersAndRender(); });
       if (continent)   continent.addEventListener('change',   e => { filterState.continent = e.target.value; applyFiltersAndRender(); });
       if (activity)    activity.addEventListener('change',    e => { filterState.activity = e.target.value; applyFiltersAndRender(); });
       status.addEventListener('change', e => {
@@ -2629,53 +2309,6 @@
         filterState.status = value === 'all' ? 'all' : (value === tUI('active').toLowerCase() ? 'active' : 'inactive');
         applyFiltersAndRender();
       });
-
-      if (!hasBoundMultiSelectEvents) {
-        const closeAllMultiSelects = () => {
-          dashboardEl.querySelectorAll('.multi-select').forEach(wrapper => {
-            const toggle = wrapper.querySelector('.multi-select-toggle');
-            const menu = wrapper.querySelector('.multi-select-menu');
-            if (toggle) toggle.setAttribute('aria-expanded', 'false');
-            if (menu) menu.hidden = true;
-          });
-        };
-
-        dashboardEl.addEventListener('click', e => {
-          const toggle = e.target.closest('.multi-select-toggle');
-          const wrapper = e.target.closest('.multi-select');
-          if (toggle) {
-            e.preventDefault();
-            const expanded = toggle.getAttribute('aria-expanded') === 'true';
-            closeAllMultiSelects();
-            if (!expanded && wrapper) {
-              const menu = wrapper.querySelector('.multi-select-menu');
-              if (menu) menu.hidden = false;
-              toggle.setAttribute('aria-expanded', 'true');
-            }
-            return;
-          }
-          if (wrapper) return;
-          closeAllMultiSelects();
-        });
-
-        dashboardEl.addEventListener('change', e => {
-          if (!e.target.matches('.multi-select-menu input[type="checkbox"]')) return;
-          const wrapper = e.target.closest('.multi-select');
-          if (!wrapper) return;
-          const filterKey = wrapper.dataset.filter;
-          const label = wrapper.dataset.label || '';
-          const selected = Array.from(wrapper.querySelectorAll('.multi-select-menu input[type="checkbox"]:checked')).map(input => input.value);
-          filterState[filterKey] = selected.length ? selected : 'all';
-          const toggle = wrapper.querySelector('.multi-select-toggle');
-          if (toggle) {
-            toggle.innerHTML = selected.length ? selected.map(escapeHtml).join(', ') : `${escapeHtml(label)} — ${escapeHtml(tUI('all'))}`;
-          }
-          applyFiltersAndRender();
-        });
-
-        hasBoundMultiSelectEvents = true;
-      }
-
       const resetBtn = document.getElementById('resetFiltersBtn');
       if (resetBtn) resetBtn.addEventListener('click', () => {
         filterState = { institution: 'all', country: 'all', domainType: 'all', status: 'all', cluster: 'all', profileType: 'all', scientific: 'all', field: 'all', continent: 'all', activity: 'all' };
@@ -2684,16 +2317,6 @@
     }
 
     function bindDashboardInteractions() {
-      if (!dashboardEl.dataset.statLinkDelegationBound) {
-        dashboardEl.addEventListener('click', e => {
-          const segmentLink = e.target.closest('.stat-link[data-segment-type][data-segment-key][data-segment-metric]');
-          if (segmentLink && dashboardEl.contains(segmentLink)) {
-            e.preventDefault();
-            openSegmentMetricDetail(segmentLink.dataset.segmentType, segmentLink.dataset.segmentKey, segmentLink.dataset.segmentMetric);
-          }
-        });
-        dashboardEl.dataset.statLinkDelegationBound = '1';
-      }
       dashboardEl.querySelectorAll('.kpi-card-clickable[data-filter]').forEach(card => {
         const open = () => openDetailModal(card.dataset.filter, card.dataset.label || tUI('detail'));
         card.addEventListener('click', open);
@@ -2716,17 +2339,6 @@
       // Step 5 — parameterized stat-link drill-downs (cluster:/continent:/field:/cohort:/lang:/recency:/state:/country:/institute:)
       dashboardEl.querySelectorAll('.stat-link[data-filter]').forEach(el => {
         el.addEventListener('click', () => openDetailModal(el.dataset.filter, (el.textContent || '').trim() || tUI('detail')));
-      });
-      dashboardEl.querySelectorAll('.stat-link[data-consolidated-segment][data-consolidated-metric]').forEach(el => {
-        el.addEventListener('click', () => openConsolidatedDetail(el.dataset.consolidatedSegment, el.dataset.consolidatedMetric));
-      });
-      dashboardEl.querySelectorAll('.stat-link[data-institute-segment][data-institute-metric]').forEach(el => {
-        el.addEventListener('click', () => openInstituteMetricDetail(el.dataset.instituteSegment, el.dataset.instituteMetric));
-      });
-      dashboardEl.querySelectorAll('.insight-clickable[data-insight-index]').forEach(card => {
-        const open = () => openDecisionInsightDetail(Number(card.dataset.insightIndex), card.dataset.insightTitle || tUI('detail'));
-        card.addEventListener('click', open);
-        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       });
       dashboardEl.querySelectorAll('.scroll-btn[data-direction]').forEach(btn => btn.addEventListener('click', () => scrollTable(btn, Number(btn.dataset.direction || '1'))));
       dashboardEl.querySelectorAll('th.sortable[data-table][data-sort-key]').forEach(th => {
@@ -2801,9 +2413,6 @@
         if (k === 'institute') return rows.filter(r => r.mappedInstitution === v);
         return [];
       }
-      if (filterKey === 'invitedRecent') return rows.filter(r => !r.active && isInvitedRecentBucket(r.invitationBucket));
-      if (filterKey === 'invitedAging') return rows.filter(r => !r.active && isInvitedAgingBucket(r.invitationBucket));
-      if (filterKey === 'neverInvited') return rows.filter(r => !r.active && isNeverInvitedBucket(r.invitationBucket));
       const by = {
         all: r => true,
         active: r => r.active,
@@ -2857,214 +2466,11 @@
       renderDetailModalContent(label, rows, tUI('rowsFilter', rows.length));
     }
 
-    function rowsForDecisionInsight(insight) {
-      if (!insight || !insight.drilldown) return [];
-      const { drilldown } = insight;
-      if (drilldown.type === 'filter') return detailRowsForFilter(drilldown.filterKey);
-      if (drilldown.type === 'countries') {
-        const values = new Set(drilldown.values || []);
-        return currentSummary.rows.filter(r => values.has(r.country));
-      }
-      if (drilldown.type === 'institutesInvitedOld') {
-        const values = new Set(drilldown.values || []);
-        return currentSummary.rows.filter(r => values.has(r.mappedInstitution) && !r.active && r.invitationBucket === '>90 jours');
-      }
-      if (drilldown.type === 'undefinedCluster') {
-        return currentSummary.rows.filter(r => {
-          const subs = r.subNetworks || [];
-          return subs.length && subs.every(s => !s || s.toLowerCase() === 'undefined');
-        });
-      }
-      return [];
-    }
-
-    function openDecisionInsightDetail(index, title) {
-      const insight = (currentSummary?.decisionInsights || [])[index];
-      if (!insight || !insight.drilldown) return;
-      const rows = rowsForDecisionInsight(insight);
-      currentDetailRows = rows;
-      currentDetailTitle = title;
-      renderDetailModalContent(title, rows, tUI('rowsSegment', rows.length));
-    }
-
     function openInstitutionDetail(name) {
       const rows = rowsForInstitution(name);
       currentDetailRows = rows;
       currentDetailTitle = tUI('usersForInstituteTitle', name);
       renderDetailModalContent(currentDetailTitle, rows, tUI('rowsForInstitute', rows.length));
-    }
-
-    function rowsForInstituteMetric(name, metric) {
-      const base = rowsForInstitution(name);
-      const byMetric = {
-        total: () => base,
-        active: () => base.filter(r => r.active),
-        inactive: () => base.filter(r => !r.active),
-        realProblems: () => base.filter(r => r.realProblem)
-      };
-      return (byMetric[metric] || byMetric.total)();
-    }
-
-    function instituteMetricLabel(metric) {
-      const labels = {
-        total: currentLang === 'fr' ? 'Total' : 'Total',
-        active: currentLang === 'fr' ? 'ActivÃ©s' : 'Activated',
-        inactive: currentLang === 'fr' ? 'Inactifs' : 'Inactive',
-        realProblems: currentLang === 'fr' ? 'Vrais problÃ¨mes' : 'Real problems'
-      };
-      return labels[metric] || (currentLang === 'fr' ? 'DÃ©tail' : 'Detail');
-    }
-
-    function openInstituteMetricDetail(name, metric) {
-      const rows = rowsForInstituteMetric(name, metric);
-      const title = `${name} â€” ${instituteMetricLabel(metric)}`;
-      currentDetailRows = rows;
-      currentDetailTitle = title;
-      renderDetailModalContent(title, rows, tUI('rowsSegment', rows.length));
-    }
-
-    function rowsForConsolidatedDetail(segment, metric) {
-      const base = currentSummary.rows.filter(r => r.mappedInstitution === segment);
-      const byMetric = {
-        total: () => base,
-        active: () => base.filter(r => r.active),
-        inactive: () => base.filter(r => !r.active),
-        invitedRecent: () => base.filter(r => !r.active && isInvitedRecentBucket(r.invitationBucket)),
-        invitedAging: () => base.filter(r => !r.active && isInvitedAgingBucket(r.invitationBucket)),
-        invitedOld: () => base.filter(r => !r.active && r.invitationBucket === '>90 jours'),
-        neverInvited: () => base.filter(r => !r.active && isNeverInvitedBucket(r.invitationBucket)),
-        realProblems: () => base.filter(r => r.realProblem)
-      };
-      return (byMetric[metric] || byMetric.total)();
-    }
-
-    function consolidatedMetricLabel(metric) {
-      const labels = {
-        total: currentLang === 'fr' ? 'Total' : 'Total',
-        active: currentLang === 'fr' ? 'ActivÃ©s' : 'Activated',
-        inactive: currentLang === 'fr' ? 'Inactifs' : 'Inactive',
-        invitedRecent: currentLang === 'fr' ? 'Invitations â‰¤30 jours' : 'Invitations â‰¤30 days',
-        invitedAging: currentLang === 'fr' ? 'Invitations 31â€“90 jours' : 'Invitations 31â€“90 days',
-        invitedOld: currentLang === 'fr' ? 'Invitations >90 jours' : 'Invitations >90 days',
-        neverInvited: currentLang === 'fr' ? 'Jamais invitÃ©s' : 'No invitation',
-        realProblems: currentLang === 'fr' ? 'Vrais problÃ¨mes' : 'Real problems'
-      };
-      return labels[metric] || (currentLang === 'fr' ? 'DÃ©tail' : 'Detail');
-    }
-
-    function openConsolidatedDetail(segment, metric) {
-      const rows = rowsForConsolidatedDetail(segment, metric);
-      const title = `${segment} â€” ${consolidatedMetricLabel(metric)}`;
-      currentDetailRows = rows;
-      currentDetailTitle = title;
-      renderDetailModalContent(title, rows, tUI('rowsSegment', rows.length));
-    }
-
-    // Clean label/title overrides to avoid mojibake in institute + consolidated popups.
-    function instituteMetricLabel(metric) {
-      const labels = {
-        total: 'Total',
-        active: currentLang === 'fr' ? 'Actives' : 'Activated',
-        inactive: currentLang === 'fr' ? 'Inactifs' : 'Inactive',
-        realProblems: currentLang === 'fr' ? 'Vrais problemes' : 'Real problems'
-      };
-      return labels[metric] || 'Detail';
-    }
-
-    function openInstituteMetricDetail(name, metric) {
-      const rows = rowsForInstituteMetric(name, metric);
-      const title = `${name} - ${instituteMetricLabel(metric)}`;
-      currentDetailRows = rows;
-      currentDetailTitle = title;
-      renderDetailModalContent(title, rows, tUI('rowsSegment', rows.length));
-    }
-
-    function consolidatedMetricLabel(metric) {
-      const labels = {
-        total: 'Total',
-        active: currentLang === 'fr' ? 'Actives' : 'Activated',
-        inactive: currentLang === 'fr' ? 'Inactifs' : 'Inactive',
-        invitedRecent: currentLang === 'fr' ? 'Invitations <=30 jours' : 'Invitations <=30 days',
-        invitedAging: currentLang === 'fr' ? 'Invitations 31-90 jours' : 'Invitations 31-90 days',
-        invitedOld: currentLang === 'fr' ? 'Invitations >90 jours' : 'Invitations >90 days',
-        neverInvited: currentLang === 'fr' ? 'Jamais invites' : 'No invitation',
-        realProblems: currentLang === 'fr' ? 'Vrais problemes' : 'Real problems'
-      };
-      return labels[metric] || 'Detail';
-    }
-
-    function openConsolidatedDetail(segment, metric) {
-      const rows = rowsForConsolidatedDetail(segment, metric);
-      const title = `${segment} - ${consolidatedMetricLabel(metric)}`;
-      currentDetailRows = rows;
-      currentDetailTitle = title;
-      renderDetailModalContent(title, rows, tUI('rowsSegment', rows.length));
-    }
-
-    function rowsForSegmentMetric(type, key, metric) {
-      const rows = currentSummary.rows;
-      const metricMatchers = {
-        total: () => true,
-        active: r => r.active,
-        inactive: r => !r.active,
-        realProblems: r => r.realProblem,
-        scientificUsers: r => r.scientificProfile === 'Scientific',
-        activeInLast90d: r => r.activeInLast90d,
-        unreachable: r => r.unreachable,
-        invitedRecent: r => !r.active && isInvitedRecentBucket(r.invitationBucket),
-        neverInvited: r => !r.active && isNeverInvitedBucket(r.invitationBucket),
-        oldWithoutActivation: r => !r.active && r.invitationBucket === '>90 jours'
-      };
-      const matchMetric = metricMatchers[metric] || (() => true);
-
-      if (type === 'domain') {
-        return rows.filter(r => (r.domain || '(sans domaine)') === key && matchMetric(r));
-      }
-      if (type === 'language') {
-        return rows.filter(r => ((r.language || '').trim().toLowerCase() || '(unspecified)') === key.toLowerCase() && matchMetric(r));
-      }
-      if (type === 'field') {
-        return rows.filter(r => (r.industries || []).includes(key) && matchMetric(r));
-      }
-      if (type === 'field-longtail') {
-        const topFieldNames = new Set((currentSummary.fields || []).map(f => f.field));
-        return rows.filter(r => (r.industries || []).some(field => !topFieldNames.has(field)) && matchMetric(r));
-      }
-      if (type === 'cluster') {
-        return rows.filter(r => (r.subNetworks || []).includes(key) && matchMetric(r));
-      }
-      if (type === 'country') {
-        return rows.filter(r => r.country === key && matchMetric(r));
-      }
-      if (type === 'continent') {
-        return rows.filter(r => (r.continent || '(No country)') === key && matchMetric(r));
-      }
-      return [];
-    }
-
-    function segmentMetricLabel(type, metric) {
-      const labels = {
-        total: currentLang === 'fr' ? 'Total' : 'Total',
-        active: currentLang === 'fr' ? 'Activés' : 'Activated',
-        inactive: currentLang === 'fr' ? 'Inactifs' : 'Inactive',
-        realProblems: currentLang === 'fr' ? 'Vrais problèmes' : 'Real problems',
-        scientificUsers: currentLang === 'fr' ? 'Scientifiques' : 'Scientific',
-        activeInLast90d: currentLang === 'fr' ? 'Actifs 90 j' : 'Active 90 d',
-        unreachable: currentLang === 'fr' ? 'Injoignables' : 'Unreachable',
-        invitedRecent: currentLang === 'fr' ? 'Invitations ≤30 jours' : 'Invitations ≤30 days',
-        neverInvited: currentLang === 'fr' ? 'Jamais invités' : 'No invitation',
-        oldWithoutActivation: currentLang === 'fr' ? 'Sans activation >90 jours' : '90d without activation'
-      };
-      if (type === 'domain' && metric === 'total') return currentLang === 'fr' ? 'Utilisateurs du domaine' : 'Domain users';
-      return labels[metric] || (currentLang === 'fr' ? 'Détail' : 'Detail');
-    }
-
-    function openSegmentMetricDetail(type, key, metric) {
-      const rows = rowsForSegmentMetric(type, key, metric);
-      const title = `${key} â€” ${segmentMetricLabel(type, metric)}`;
-      currentDetailRows = rows;
-      currentDetailTitle = title;
-      renderDetailModalContent(title, rows, tUI('rowsSegment', rows.length));
     }
 
     function openRowsDetail(rows, title, metaText) {
@@ -3079,14 +2485,7 @@
     }
 
     function renderDetailModalContent(title, rows, metaText) {
-      const cleanTitle = String(decodeMojibakeText(title ?? ''))
-        .replace(/Ã¢â‚¬â€/g, '-')
-        .replace(/â€”/g, '-')
-        .replace(/Ã¢â€°Â¤/g, '<=')
-        .replace(/â‰¤/g, '<=')
-        .replace(/Ã¢â‚¬â€œ/g, '-')
-        .replace(/â€“/g, '-');
-      detailModalTitleEl.textContent = cleanTitle;
+      detailModalTitleEl.textContent = title;
       detailModalMetaEl.textContent = metaText;
       detailModalBodyEl.innerHTML = `
         <div class="modal-tools">
@@ -3099,7 +2498,6 @@
       `;
       detailModalEl.classList.add('open');
       detailModalEl.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('modal-open');
       bindDetailControls(rows);
       if (currentLang === 'fr') translateUiToFrench(detailModalEl);
     }
@@ -3152,25 +2550,6 @@
           const target = host.querySelector(btn.dataset.scrollTarget);
           if (target) target.scrollBy({ left: Number(btn.dataset.direction || '1') * 360, behavior: 'smooth' });
         }));
-        host.querySelectorAll('.detail-table-wrap').forEach(wrap => {
-          wrap.addEventListener('wheel', event => {
-            const canScrollVertically = wrap.scrollHeight > wrap.clientHeight;
-            const canScrollHorizontally = wrap.scrollWidth > wrap.clientWidth;
-            let consumed = false;
-
-            if (canScrollHorizontally && (event.shiftKey || Math.abs(event.deltaX) > 0)) {
-              wrap.scrollLeft += event.shiftKey ? event.deltaY : event.deltaX;
-              consumed = true;
-            }
-
-            if (canScrollVertically && !event.shiftKey && Math.abs(event.deltaY) > 0) {
-              wrap.scrollTop += event.deltaY;
-              consumed = true;
-            }
-
-            if (consumed) event.preventDefault();
-          }, { passive: false });
-        });
         if (currentLang === 'fr') translateUiToFrench(host);
       };
       nameInput.addEventListener('input', rerender);
@@ -3224,7 +2603,6 @@
     function closeDetailModal() {
       detailModalEl.classList.remove('open');
       detailModalEl.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('modal-open');
     }
 
     function renderInstituteTable(items) {
@@ -3243,12 +2621,12 @@
         ].join('')}</tr></thead>
         <tbody>
           ${sorted.map(i => `<tr>
-            <td><strong class="stat-link" data-institute-segment="${escapeHtml(i.institution)}" data-institute-metric="total">${escapeHtml(i.institution)}</strong><div class="small muted">Confidence: ${escapeHtml(localizeBusinessText('mappingConfidence', i.mappingLevel))}</div></td>
-            <td><span class="stat-link" data-institute-segment="${escapeHtml(i.institution)}" data-institute-metric="total">${formatInt(i.totalUsers)}</span></td>
-            <td><span class="stat-link" data-institute-segment="${escapeHtml(i.institution)}" data-institute-metric="active">${formatInt(i.activeUsers)}</span></td>
-            <td><span class="stat-link" data-institute-segment="${escapeHtml(i.institution)}" data-institute-metric="inactive">${formatInt(i.inactiveUsers)}</span></td>
+            <td><strong class="stat-link" data-institution="${escapeHtml(i.institution)}">${escapeHtml(i.institution)}</strong><div class="small muted">Confidence: ${escapeHtml(localizeBusinessText('mappingConfidence', i.mappingLevel))}</div></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.institution)}">${formatInt(i.totalUsers)}</span></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.institution)}">${formatInt(i.activeUsers)}</span></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.institution)}">${formatInt(i.inactiveUsers)}</span></td>
             <td>${formatPct(i.activationRate)}</td><td>${formatPct(i.affiliationRate)}</td>
-            <td><span class="stat-link" data-institute-segment="${escapeHtml(i.institution)}" data-institute-metric="realProblems">${formatInt(i.realProblems)}</span></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.institution)}">${formatInt(i.realProblems)}</span></td>
             <td>${renderStatusBadge(i.status)}</td><td>${escapeHtml(localizeBusinessText('action', i.action))}</td>
           </tr>`).join('')}
         </tbody></table>`;
@@ -3271,7 +2649,7 @@
         ].join('')}</tr></thead>
         <tbody>
           ${sorted.map(d => `<tr>
-            <td><strong>${escapeHtml(d.domain)}</strong></td><td>${renderStatusBadge(d.type)}</td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="total">${formatInt(d.totalUsers)}</button></td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="active">${formatInt(d.activeUsers)}</button></td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="inactive">${formatInt(d.inactiveUsers)}</button></td><td>${formatPct(d.activationRate)}</td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="invitedRecent">${formatInt(d.invitedRecent)}</button></td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="neverInvited">${formatInt(d.neverInvited)}</button></td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="oldWithoutActivation">${formatInt(d.oldWithoutActivation)}</button></td><td><button type="button" class="stat-link stat-link-btn" data-segment-type="domain" data-segment-key="${escapeHtml(d.domain)}" data-segment-metric="realProblems">${formatInt(d.realProblems)}</button></td>
+            <td><strong>${escapeHtml(d.domain)}</strong></td><td>${renderStatusBadge(d.type)}</td><td>${formatInt(d.totalUsers)}</td><td>${formatInt(d.activeUsers)}</td><td>${formatInt(d.inactiveUsers)}</td><td>${formatPct(d.activationRate)}</td><td>${formatInt(d.invitedRecent)}</td><td>${formatInt(d.neverInvited)}</td><td>${formatInt(d.oldWithoutActivation)}</td><td>${formatInt(d.realProblems)}</td>
           </tr>`).join('')}
         </tbody></table>`;
     }
@@ -3296,12 +2674,12 @@
         ].join('')}</tr></thead>
         <tbody>
           ${sorted.map(i => `<tr>
-            <td><strong class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="total">${escapeHtml(i.segment)}</strong></td>
-            <td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="total">${formatInt(i.totalUsers)}</span></td>
-            <td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="active">${formatInt(i.activeUsers)}</span></td>
-            <td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="inactive">${formatInt(i.inactiveUsers)}</span></td>
-            <td>${formatPct(i.activationRate)}</td><td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="invitedRecent">${formatInt(i.invitedRecent)}</span></td><td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="invitedAging">${formatInt(i.invitedAging)}</span></td><td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="invitedOld">${formatInt(i.invitedOld)}</span></td><td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="neverInvited">${formatInt(i.neverInvited)}</span></td>
-            <td><span class="stat-link" data-consolidated-segment="${escapeHtml(i.segment)}" data-consolidated-metric="realProblems">${formatInt(i.realProblems)}</span></td>
+            <td><strong class="stat-link" data-institution="${escapeHtml(i.segment)}">${escapeHtml(i.segment)}</strong></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.segment)}">${formatInt(i.totalUsers)}</span></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.segment)}">${formatInt(i.activeUsers)}</span></td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.segment)}">${formatInt(i.inactiveUsers)}</span></td>
+            <td>${formatPct(i.activationRate)}</td><td>${formatInt(i.invitedRecent)}</td><td>${formatInt(i.invitedAging)}</td><td>${formatInt(i.invitedOld)}</td><td>${formatInt(i.neverInvited)}</td>
+            <td><span class="stat-link" data-institution="${escapeHtml(i.segment)}">${formatInt(i.realProblems)}</span></td>
             <td>${renderStatusBadge(i.status)}</td><td>${renderPriorityBadge(i.priority)}</td><td>${escapeHtml(localizeBusinessText('action', i.action))}</td>
           </tr>`).join('')}
         </tbody></table>`;
@@ -3421,57 +2799,18 @@
     }
 
     function createCharts(summary) {
-      const palette = { navy: '#213c83', steel: '#1a3069', amber: '#d96736', red: '#ff7940', green: '#00b3ff' };
-      Chart.defaults.color = '#2b2b2b';
-      Chart.defaults.font.family = 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif';
-      if (Chart.defaults.plugins && Chart.defaults.plugins.legend && Chart.defaults.plugins.legend.labels) Chart.defaults.plugins.legend.labels.boxWidth = 10;
       const t = summary.totals;
-      const l = Object.fromEntries(Object.entries(chartLabels()).map(([key, value]) => [key, decodeUiValue(value)]));
+      const l = chartLabels();
       const selectedInstitution = filterState.institution !== 'all' ? filterState.institution : null;
-      const selectedInstitutionLabel = decodeMojibakeText(selectedInstitution || '');
-      const piePalette = [palette.navy, palette.amber, palette.green, palette.steel, '#4f6db6', '#f39b72', '#34c7ff', '#6f87c7', '#e7b08b', '#8b9fd1', '#8fdfff', '#f5c6ad'];
-
-      const clusterLabels = summary.subNetworks.length
-        ? summary.subNetworks.map(s => decodeMojibakeText(s.name))
-        : [l.noData];
-      const clusterData = summary.subNetworks.length
-        ? summary.subNetworks.map(s => s.totalUsers)
-        : [1];
-
-      charts.cluster = new Chart(document.getElementById('clusterChart'), {
-        type:'pie',
-        data:{
-          labels:clusterLabels,
-          datasets:[{
-            data:clusterData,
-            backgroundColor:clusterLabels.map((_, idx) => piePalette[idx % piePalette.length]),
-            borderWidth:0
-          }]
-        },
-        options:{
-          maintainAspectRatio:false,
-          onClick:(e,els)=>{
-            if (!els.length || !summary.subNetworks.length) return;
-            const cluster = summary.subNetworks[els[0].index];
-            if (!cluster) return;
-            const rows = detailRowsForFilter(`cluster:${cluster.name}`);
-            openRowsDetail(rows, decodeMojibakeText(cluster.name), tUI('rowsSegment', rows.length));
-          },
-          plugins:{
-            title:{display:true,text:selectedInstitutionLabel ? `${tUI('clusterTitle')} — ${selectedInstitutionLabel}` : tUI('clusterTitle')},
-            legend:{position:'bottom'}
-          }
-        }
-      });
       charts.activation = new Chart(document.getElementById('activationChart'), {
         type: 'doughnut',
-        data: { labels: l.activation, datasets: [{ data: [t.active, t.inactive], backgroundColor: [palette.navy, palette.amber], borderWidth: 0 }] },
+        data: { labels: l.activation, datasets: [{ data: [t.active, t.inactive], backgroundColor: ['#213c83', '#ff7940'], borderWidth: 0 }] },
         options: { maintainAspectRatio:false, onClick:(e,els)=>{ if(!els.length) return; openDetailModal(els[0].index===0?'active':'inactive', l.activation[els[0].index]); }, plugins:{ title:{display:true,text:l.actTitle}, legend:{position:'bottom'} } }
       });
 
       charts.invitation = new Chart(document.getElementById('invitationChart'), {
         type: 'bar',
-        data: { labels: l.invitation, datasets: [{ label: l.inactive, data: [t.invitedRecent,t.invitedAging,t.invitedOld,t.neverInvited], backgroundColor:[palette.navy, palette.steel, palette.amber, palette.red] }] },
+        data: { labels: l.invitation, datasets: [{ label: l.inactive, data: [t.invitedRecent,t.invitedAging,t.invitedOld,t.neverInvited], backgroundColor:['#213c83','#00b3ff','#ff7940','#d96736'] }] },
         options: { maintainAspectRatio:false, plugins:{ title:{display:true,text:l.invTitle}, legend:{display:false} }, scales:{ y:{beginAtZero:true} } }
       });
 
@@ -3498,13 +2837,13 @@
           type:'bar',
           data:{
             labels: activeUsers.length ? activeUsers.map(getUserShortLabel) : [l.noData],
-            datasets:[{ label:l.activeUsersMetric, data: activeUsers.length ? activeUsers.map(r => r.score ?? 0) : [0], backgroundColor:palette.navy }]
+            datasets:[{ label:l.activeUsersMetric, data: activeUsers.length ? activeUsers.map(r => r.score ?? 0) : [0], backgroundColor:'#213c83' }]
           },
           options:{
             indexAxis:'y',
             maintainAspectRatio:false,
             onClick:(e,els)=>{ if(!els.length || !activeUsers.length) return; const row = activeUsers[els[0].index]; openRowsDetail([row], getUserDisplayName(row), tUI('rowsSegment', 1)); },
-            plugins:{ title:{display:true,text:`${l.activeUsersTitle} ? ${selectedInstitutionLabel}`}, legend:{display:false} },
+            plugins:{ title:{display:true,text:`${l.activeUsersTitle} — ${selectedInstitution}`}, legend:{display:false} },
             scales:{ x:{ beginAtZero:true } }
           }
         });
@@ -3513,13 +2852,13 @@
           type:'bar',
           data:{
             labels: followUpUsers.length ? followUpUsers.map(getUserShortLabel) : [l.noData],
-            datasets:[{ label:l.followUpMetric, data: followUpUsers.length ? followUpUsers.map(r => getFollowUpPriority(r)) : [0], backgroundColor:palette.amber }]
+            datasets:[{ label:l.followUpMetric, data: followUpUsers.length ? followUpUsers.map(r => getFollowUpPriority(r)) : [0], backgroundColor:'#ff7940' }]
           },
           options:{
             indexAxis:'y',
             maintainAspectRatio:false,
             onClick:(e,els)=>{ if(!els.length || !followUpUsers.length) return; const row = followUpUsers[els[0].index]; openRowsDetail([row], `${getUserDisplayName(row)} — ${getFollowUpReason(row, l)}`, tUI('rowsSegment', 1)); },
-            plugins:{ title:{display:true,text:`${l.followUpTitle} ? ${selectedInstitutionLabel}`}, legend:{display:false} },
+            plugins:{ title:{display:true,text:`${l.followUpTitle} — ${selectedInstitution}`}, legend:{display:false} },
             scales:{ x:{ beginAtZero:true } }
           }
         });
@@ -3534,8 +2873,8 @@
 
         charts.domainType = new Chart(document.getElementById('domainTypeChart'), {
           type:'pie',
-          data:{ labels:invitationStatusLabels, datasets:[{ data: invitationStatusRows.map(rows => rows.length), backgroundColor:[palette.navy, palette.steel, palette.amber, palette.red], borderWidth:0 }]},
-          options:{ maintainAspectRatio:false, onClick:(e,els)=>{ if(!els.length) return; const idx=els[0].index; const rows = invitationStatusRows[idx]; openRowsDetail(rows, `${l.invitationStatusTitle} ? ${invitationStatusLabels[idx]}`, tUI('rowsSegment', rows.length)); }, plugins:{ title:{display:true,text:`${l.invitationStatusTitle} ? ${selectedInstitutionLabel}`}, legend:{position:'bottom'} } }
+          data:{ labels:invitationStatusLabels, datasets:[{ data: invitationStatusRows.map(rows => rows.length), backgroundColor:['#213c83','#00b3ff','#ff7940','#d96736'], borderWidth:0 }]},
+          options:{ maintainAspectRatio:false, onClick:(e,els)=>{ if(!els.length) return; const idx=els[0].index; const rows = invitationStatusRows[idx]; openRowsDetail(rows, `${l.invitationStatusTitle} — ${invitationStatusLabels[idx]}`, tUI('rowsSegment', rows.length)); }, plugins:{ title:{display:true,text:`${l.invitationStatusTitle} — ${selectedInstitution}`}, legend:{position:'bottom'} } }
         });
         return;
       }
@@ -3546,20 +2885,20 @@
 
       charts.topActiveInstitutes = new Chart(document.getElementById('topActiveInstitutesChart'), {
         type:'bar',
-        data:{ labels: topActive.map(i => i.institution.length>30 ? i.institution.slice(0,30)+'…' : i.institution), datasets:[{ label:l.actRate, data: topActive.map(i => Number((i.activationRate||0).toFixed(1))), backgroundColor:palette.navy }]},
+        data:{ labels: topActive.map(i => i.institution.length>30 ? i.institution.slice(0,30)+'…' : i.institution), datasets:[{ label:l.actRate, data: topActive.map(i => Number((i.activationRate||0).toFixed(1))), backgroundColor:'#213c83' }]},
         options:{ indexAxis:'y', maintainAspectRatio:false, onClick:(e,els)=>{ if(els.length) openInstitutionDetail(topActive[els[0].index].institution); }, plugins:{ title:{display:true,text:l.topA}, legend:{display:false} }, scales:{ x:{ beginAtZero:true, max:100, ticks:{ callback:v=>v+' %' } } } }
       });
 
       charts.topLeastActiveInstitutes = new Chart(document.getElementById('topLeastActiveInstitutesChart'), {
         type:'bar',
-        data:{ labels: topLeast.map(i => i.institution.length>30 ? i.institution.slice(0,30)+'…' : i.institution), datasets:[{ label:l.actRate, data: topLeast.map(i => Number((i.activationRate||0).toFixed(1))), backgroundColor:palette.amber }]},
+        data:{ labels: topLeast.map(i => i.institution.length>30 ? i.institution.slice(0,30)+'…' : i.institution), datasets:[{ label:l.actRate, data: topLeast.map(i => Number((i.activationRate||0).toFixed(1))), backgroundColor:'#ff7940' }]},
         options:{ indexAxis:'y', maintainAspectRatio:false, onClick:(e,els)=>{ if(els.length) openInstitutionDetail(topLeast[els[0].index].institution); }, plugins:{ title:{display:true,text:l.topL}, legend:{display:false} }, scales:{ x:{ beginAtZero:true, max:100, ticks:{ callback:v=>v+' %' } } } }
       });
 
       const domainTypes = ['Institutionnel', 'Personnel', 'Inconnu / autre'].map(type => summary.domains.filter(d => d.type === type).reduce((acc,cur) => acc + cur.totalUsers, 0));
       charts.domainType = new Chart(document.getElementById('domainTypeChart'), {
         type:'pie',
-        data:{ labels:l.domain, datasets:[{ data: domainTypes, backgroundColor:[palette.navy, palette.amber, palette.steel], borderWidth:0 }]},
+        data:{ labels:l.domain, datasets:[{ data: domainTypes, backgroundColor:['#213c83','#ff7940','#94a3b8'], borderWidth:0 }]},
         options:{ maintainAspectRatio:false, onClick:(e,els)=>{ if(!els.length) return; const idx=els[0].index; const source = ['Institutionnel','Personnel','Inconnu / autre'][idx]; const rows = currentSummary.rows.filter(r => r.domainType === source); openRowsDetail(rows, tUI('domainBreakdownTitle', l.domain[idx]), tUI('rowsDomain', rows.length)); }, plugins:{ title:{display:true,text:l.domTitle}, legend:{position:'bottom'} } }
       });
     }
@@ -3586,12 +2925,12 @@
           ${countries.map(c => `<tr>
             <td><strong>${escapeHtml(c.country)}</strong></td>
             <td>${escapeHtml(c.code || '—')}</td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="country" data-segment-key="${escapeHtml(c.country)}" data-segment-metric="total">${formatInt(c.totalUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="country" data-segment-key="${escapeHtml(c.country)}" data-segment-metric="active">${formatInt(c.activeUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="country" data-segment-key="${escapeHtml(c.country)}" data-segment-metric="inactive">${formatInt(c.inactiveUsers)}</button></td>
+            <td>${formatInt(c.totalUsers)}</td>
+            <td>${formatInt(c.activeUsers)}</td>
+            <td>${formatInt(c.inactiveUsers)}</td>
             <td>${formatPct(c.activationRate)}</td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="country" data-segment-key="${escapeHtml(c.country)}" data-segment-metric="realProblems">${formatInt(c.realProblems)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="country" data-segment-key="${escapeHtml(c.country)}" data-segment-metric="unreachable">${formatInt(c.unreachable)}</button></td>
+            <td>${formatInt(c.realProblems)}</td>
+            <td>${formatInt(c.unreachable)}</td>
           </tr>`).join('')}
         </tbody>
       </table>`;
@@ -3614,14 +2953,14 @@
         </tr></thead>
         <tbody>
           ${subs.map(s => `<tr>
-            <td><strong>${escapeHtml(s.name)}</strong></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="cluster" data-segment-key="${escapeHtml(s.name)}" data-segment-metric="total">${formatInt(s.totalUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="cluster" data-segment-key="${escapeHtml(s.name)}" data-segment-metric="active">${formatInt(s.activeUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="cluster" data-segment-key="${escapeHtml(s.name)}" data-segment-metric="inactive">${formatInt(s.inactiveUsers)}</button></td>
+            <td><strong class="stat-link" data-filter="cluster:${escapeHtml(s.name)}">${escapeHtml(s.name)}</strong></td>
+            <td>${formatInt(s.totalUsers)}</td>
+            <td>${formatInt(s.activeUsers)}</td>
+            <td>${formatInt(s.inactiveUsers)}</td>
             <td>${formatPct(s.activationRate)}</td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="cluster" data-segment-key="${escapeHtml(s.name)}" data-segment-metric="activeInLast90d">${formatInt(s.activeInLast90d || 0)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="cluster" data-segment-key="${escapeHtml(s.name)}" data-segment-metric="scientificUsers">${formatInt(s.scientificUsers || 0)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="cluster" data-segment-key="${escapeHtml(s.name)}" data-segment-metric="realProblems">${formatInt(s.realProblems)}</button></td>
+            <td>${formatInt(s.activeInLast90d || 0)}</td>
+            <td>${formatInt(s.scientificUsers || 0)}</td>
+            <td>${formatInt(s.realProblems)}</td>
           </tr>`).join('')}
         </tbody>
       </table>`;
@@ -3641,12 +2980,12 @@
         </tr></thead>
         <tbody>
           ${continents.map(c => `<tr>
-            <td><strong>${escapeHtml(c.continent)}</strong></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="continent" data-segment-key="${escapeHtml(c.continent)}" data-segment-metric="total">${formatInt(c.totalUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="continent" data-segment-key="${escapeHtml(c.continent)}" data-segment-metric="active">${formatInt(c.activeUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="continent" data-segment-key="${escapeHtml(c.continent)}" data-segment-metric="inactive">${formatInt(c.inactiveUsers)}</button></td>
+            <td><strong class="stat-link" data-filter="continent:${escapeHtml(c.continent)}">${escapeHtml(c.continent)}</strong></td>
+            <td>${formatInt(c.totalUsers)}</td>
+            <td>${formatInt(c.activeUsers)}</td>
+            <td>${formatInt(c.inactiveUsers)}</td>
             <td>${formatPct(c.activationRate)}</td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="continent" data-segment-key="${escapeHtml(c.continent)}" data-segment-metric="scientificUsers">${formatInt(c.scientificUsers || 0)}</button></td>
+            <td>${formatInt(c.scientificUsers || 0)}</td>
           </tr>`).join('')}
         </tbody>
       </table>`;
@@ -3655,18 +2994,18 @@
     function renderFieldTable(fields, longTail) {
       if (!fields || !fields.length) return `<div class="empty">${escapeHtml(tUI('emptySegment'))}</div>`;
       const rowsHtml = fields.map(f => `<tr>
-        <td><strong>${escapeHtml(f.field)}</strong></td>
-        <td><button type="button" class="stat-link stat-link-btn" data-segment-type="field" data-segment-key="${escapeHtml(f.field)}" data-segment-metric="total">${formatInt(f.totalUsers)}</button></td>
-        <td><button type="button" class="stat-link stat-link-btn" data-segment-type="field" data-segment-key="${escapeHtml(f.field)}" data-segment-metric="active">${formatInt(f.activeUsers)}</button></td>
+        <td><strong class="stat-link" data-filter="field:${escapeHtml(f.field)}">${escapeHtml(f.field)}</strong></td>
+        <td>${formatInt(f.totalUsers)}</td>
+        <td>${formatInt(f.activeUsers)}</td>
         <td>${formatPct(f.activationRate)}</td>
-        <td><button type="button" class="stat-link stat-link-btn" data-segment-type="field" data-segment-key="${escapeHtml(f.field)}" data-segment-metric="scientificUsers">${formatInt(f.scientificUsers || 0)}</button></td>
+        <td>${formatInt(f.scientificUsers || 0)}</td>
       </tr>`).join('');
       const longTailHtml = longTail ? `<tr>
         <td><strong>${escapeHtml(tUI('fieldLongTailLabel'))}</strong> <span class="small muted">(${escapeHtml(tUI('fieldLongTailHint', longTail.distinctValues))})</span></td>
-        <td><button type="button" class="stat-link stat-link-btn" data-segment-type="field-longtail" data-segment-key="longtail" data-segment-metric="total">${formatInt(longTail.totalUsers)}</button></td>
-        <td><button type="button" class="stat-link stat-link-btn" data-segment-type="field-longtail" data-segment-key="longtail" data-segment-metric="active">${formatInt(longTail.activeUsers)}</button></td>
+        <td>${formatInt(longTail.totalUsers)}</td>
+        <td>${formatInt(longTail.activeUsers)}</td>
         <td>${formatPct(longTail.activationRate)}</td>
-        <td><button type="button" class="stat-link stat-link-btn" data-segment-type="field-longtail" data-segment-key="longtail" data-segment-metric="scientificUsers">${formatInt(longTail.scientificUsers || 0)}</button></td>
+        <td>${formatInt(longTail.scientificUsers || 0)}</td>
       </tr>` : '';
       return `<table>
         <thead><tr>
@@ -3692,10 +3031,10 @@
         </tr></thead>
         <tbody>
           ${languages.map(l => `<tr>
-            <td><strong>${escapeHtml(l.language)}</strong></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="language" data-segment-key="${escapeHtml(l.language)}" data-segment-metric="total">${formatInt(l.totalUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="language" data-segment-key="${escapeHtml(l.language)}" data-segment-metric="active">${formatInt(l.activeUsers)}</button></td>
-            <td><button type="button" class="stat-link stat-link-btn" data-segment-type="language" data-segment-key="${escapeHtml(l.language)}" data-segment-metric="inactive">${formatInt(l.inactiveUsers)}</button></td>
+            <td><strong class="stat-link" data-filter="lang:${escapeHtml(l.language)}">${escapeHtml(l.language)}</strong></td>
+            <td>${formatInt(l.totalUsers)}</td>
+            <td>${formatInt(l.activeUsers)}</td>
+            <td>${formatInt(l.inactiveUsers)}</td>
             <td>${formatPct(l.activationRate)}</td>
           </tr>`).join('')}
         </tbody>
@@ -4065,3 +3404,4 @@
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(insights), 'insights');
       XLSX.writeFile(wb, 'decision_report.xlsx');
     }
+
